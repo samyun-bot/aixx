@@ -69,19 +69,25 @@ function createAxiosInstance(cookieJar?: InstanceType<typeof CookieJar>): AxiosI
     timeout: REQUEST_TIMEOUT,
     httpAgent: new HttpCookieAgent({ cookies: { jar } }),
     httpsAgent: new HttpsCookieAgent({ cookies: { jar } }),
+    validateStatus: () => true, // Don't throw on any status
+    maxRedirects: 5,
     headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-      'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7,hy;q=0.6',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+      'Accept-Language': 'en-US,en;q=0.9,hy;q=0.8,ru;q=0.7',
       'Accept-Encoding': 'gzip, deflate, br',
       'DNT': '1',
+      'Pragma': 'no-cache',
+      'Cache-Control': 'no-cache',
       'Connection': 'keep-alive',
       'Upgrade-Insecure-Requests': '1',
+      'Sec-Ch-Ua': '"Google Chrome";v="123", "Not:A-Brand";v="8"',
+      'Sec-Ch-Ua-Mobile': '?0',
+      'Sec-Ch-Ua-Platform': '"Windows"',
       'Sec-Fetch-Dest': 'document',
       'Sec-Fetch-Mode': 'navigate',
       'Sec-Fetch-Site': 'none',
-      'Sec-Fetch-User': '?1',
-      'Cache-Control': 'max-age=0'
+      'Sec-Fetch-User': '?1'
     }
   });
 }
@@ -95,11 +101,13 @@ async function fetchCsrfToken(retries = MAX_RETRIES): Promise<{ token: string | 
 
       console.log(`📡 Попытка получения CSRF токена #${attempt}...`);
 
+      // Try visiting the base URL first to establish session
       const response = await client.get(BASE_URL);
 
       console.log(`📡 CSRF Token fetch - Статус: ${response.status}`);
 
-      if (response.status === 200) {
+      // Handle both 200 and 403 responses
+      if (response.status === 200 || response.status === 403) {
         const $ = cheerio.load(response.data);
         const token = $('input[name="__RequestVerificationToken"]').val() as string;
 
@@ -107,6 +115,23 @@ async function fetchCsrfToken(retries = MAX_RETRIES): Promise<{ token: string | 
           console.log('✓ Свежий токен получен успешно');
           console.log(`✓ Токен: ${token.substring(0, 20)}...`);
           return { token, cookieJar };
+        } else if (response.status === 403) {
+          console.warn('⚠️ Получен статус 403. Попробуем другой подход...');
+          
+          // Try alternative approach: set referer and retry
+          if (attempt === 1) {
+            client.defaults.headers.common['Referer'] = 'https://elections.am/';
+            console.log('🔄 Переустанавливаем Referer и повторяем запрос...');
+            const retryResponse = await client.get(BASE_URL);
+            if (retryResponse.status === 200) {
+              const $2 = cheerio.load(retryResponse.data);
+              const token2 = $2('input[name="__RequestVerificationToken"]').val() as string;
+              if (token2 && token2.length > 0) {
+                console.log('✓ Токен получен со второй попытки');
+                return { token: token2, cookieJar };
+              }
+            }
+          }
         } else {
           console.warn('⚠️ Токен не найден на странице');
         }
@@ -118,14 +143,14 @@ async function fetchCsrfToken(retries = MAX_RETRIES): Promise<{ token: string | 
       console.error('   Status:', error.response?.status);
       
       if (attempt < retries) {
-        const delay = attempt * 1000; // Увеличиваем задержку с каждой попыткой
+        const delay = attempt * 1500; // Увеличиваем задержку
         console.log(`⏳ Ожидание ${delay}ms перед повторной попыткой...`);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
   }
 
-  console.error('❌ Не удалось получить CSRF токен после всех попыток');
+  console.error('❌ Не удалось получить CSRF токен после всех попыток. Сервис elections.am может быть недоступен или блокирует запросы.');
   return { token: null, cookieJar: null };
 }
 
@@ -615,7 +640,7 @@ app.post('/api/search', async (req: Request, res: Response) => {
     console.error('📋 Детали ошибки:', error.message);
     console.error('📚 Stack trace:', error.stack);
     console.error('🔧 Error code:', error.code);
-    console.error('⏱️ Время до ошибки: ${duration}s');
+    console.error(`⏱️ Время до ошибки: ${duration}s`);
     console.error(`${'*'.repeat(80)}\n`);
 
     // Provide more specific error messages
