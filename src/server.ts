@@ -101,6 +101,7 @@ async function fetchCsrfToken(retries = MAX_RETRIES): Promise<{ token: string | 
       const response = await gotScraping({
         url: BASE_URL,
         method: 'GET',
+        timeout: 30000,
         headerGeneratorOptions: {
           browsers: [
             {
@@ -120,6 +121,7 @@ async function fetchCsrfToken(retries = MAX_RETRIES): Promise<{ token: string | 
       });
 
       console.log(`📡 CSRF Token fetch - Статус: ${response.statusCode}`);
+      console.log(`📡 Response size: ${response.body.length} bytes`);
 
       if (response.statusCode === 200) {
         const $ = cheerio.load(response.body);
@@ -127,7 +129,7 @@ async function fetchCsrfToken(retries = MAX_RETRIES): Promise<{ token: string | 
 
         if (token && token.length > 0) {
           console.log('✓ Свежий токен получен успешно');
-          console.log(`✓ Токен: ${token.substring(0, 20)}...`);
+          console.log(`✓ Токен длина: ${token.length}`);
 
           // Получаем cookies из ответа
           const cookies = response.headers['set-cookie'];
@@ -280,6 +282,7 @@ async function getSearchResults(params: {
         url: BASE_URL,
         method: 'POST',
         body: formBody,
+        timeout: 30000,
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
           'Cookie': cookieString || '',
@@ -429,6 +432,7 @@ app.post('/api/search', async (req: Request, res: Response) => {
     console.log(`${'*'.repeat(80)}`);
     console.log(`🕐 Время: ${new Date().toLocaleString('ru-RU')}`);
     console.log(`🌐 IP: ${req.ip || req.socket.remoteAddress}`);
+    console.log(`📝 Данные: ${firstName} ${lastName}`);
 
     // Perform search
     const results = await getSearchResults({
@@ -455,9 +459,8 @@ app.post('/api/search', async (req: Request, res: Response) => {
     return res.json({
       success: true,
       count: results.length,
-      results,
-      duration: duration + 's'
-    } as CombinedResponse & { duration: string });
+      results
+    } as CombinedResponse);
 
   } catch (error: any) {
     const duration = ((Date.now() - startTime) / 1000).toFixed(2);
@@ -470,10 +473,13 @@ app.post('/api/search', async (req: Request, res: Response) => {
     console.error(`⏱️ Время до ошибки: ${duration}s`);
     console.error(`${'*'.repeat(80)}\n`);
 
+    // Return user-friendly error
+    const errorMessage = error.message || 'An error occurred during search';
+    
     return res.status(500).json({
       success: false,
-      error: 'Произошла ошибка при поиске. Попробуйте позже. / An error occurred during search. Please try again later.',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      error: 'Service unavailable. Please try again later. / Ծառայությունն անհասանելի է։',
+      details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
     } as CombinedResponse & { details?: string });
   }
 });
