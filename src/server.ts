@@ -100,13 +100,12 @@ function cleanText(text: string): string {
 
 // Fetch CSRF token with got-scraping (with caching)
 async function fetchCsrfToken(retries = MAX_RETRIES): Promise<{ token: string | null; cookies: string | null }> {
-  // Check if we have a valid cached token
+  // Check cache first
   if (cachedToken && Date.now() - cachedToken.timestamp < TOKEN_CACHE_DURATION) {
     console.log('✓ Использование кэшированного CSRF токена');
     return { token: cachedToken.token, cookies: cachedToken.cookies };
   }
 
-  // If token fetch is already in progress, wait for it
   if (tokenFetchInProgress) {
     console.log('⏳ Ожидание текущей загрузки токена...');
     return new Promise((resolve) => {
@@ -123,30 +122,43 @@ async function fetchCsrfToken(retries = MAX_RETRIES): Promise<{ token: string | 
       const response = await gotScraping({
         url: BASE_URL,
         method: 'GET',
-        timeout: {
-          request: 15000
+        timeout: { request: 20000 },
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+          'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7,hy;q=0.6',
+          'Accept-Encoding': 'gzip, deflate, br',
+          'Cache-Control': 'max-age=0',
+          'Sec-Ch-Ua': '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+          'Sec-Ch-Ua-Mobile': '?0',
+          'Sec-Ch-Ua-Platform': '"Windows"',
+          'Sec-Fetch-Dest': 'document',
+          'Sec-Fetch-Mode': 'navigate',
+          'Sec-Fetch-Site': 'none',
+          'Sec-Fetch-User': '?1',
+          'Upgrade-Insecure-Requests': '1',
+          'DNT': '1'
         },
         headerGeneratorOptions: {
           browsers: [
             {
-              name: 'firefox',
-              minVersion: 145,
-              maxVersion: 150
+              name: 'chrome',
+              minVersion: 120,
+              maxVersion: 131
             }
           ],
           devices: ['desktop'],
-          locales: ['ru-RU', 'en-US'],
+          locales: ['ru-RU', 'en-US', 'hy-AM'],
           operatingSystems: ['windows']
         },
         proxyUrl: process.env.PROXY_URL,
         retry: {
-          limit: 1
+          limit: 2,
+          methods: ['GET']
         }
       });
 
       console.log(`📡 CSRF Token fetch - Статус: ${response.statusCode}`);
-      console.log(`📡 Response size: ${response.body.length} bytes`);
-      console.log(`📡 Content-Type: ${response.headers['content-type']}`);
 
       if (response.statusCode === 200) {
         const $ = cheerio.load(response.body);
@@ -154,40 +166,25 @@ async function fetchCsrfToken(retries = MAX_RETRIES): Promise<{ token: string | 
 
         if (token && token.length > 0) {
           console.log('✓ Свежий токен получен успешно');
-          console.log(`✓ Токен длина: ${token.length}`);
-
-          // Получаем cookies из ответа
           const cookies = response.headers['set-cookie'];
           const cookieString = cookies ? cookies.join('; ') : '';
 
-          // Cache the token
-          cachedToken = {
-            token,
-            cookies: cookieString,
-            timestamp: Date.now()
-          };
+          cachedToken = { token, cookies: cookieString, timestamp: Date.now() };
 
-          // Notify all waiters
           const result = { token, cookies: cookieString };
           tokenFetchInProgress = false;
           tokenFetchWaiters.forEach(waiter => waiter(result));
           tokenFetchWaiters = [];
 
           return result;
-        } else {
-          console.warn('⚠️ Токен не найден на странице');
-          console.warn(`📋 HTML preview: ${response.body.substring(0, 500)}`);
         }
       } else {
         console.warn(`⚠️ Неожиданный статус: ${response.statusCode}`);
-        console.warn(`📋 Response: ${response.body.substring(0, 200)}`);
       }
     } catch (error: any) {
       console.error(`⚠️ Ошибка при получении токена (попытка ${attempt}/${retries}):`, error.message);
-      console.error(`   Code: ${error.code}`);
 
       if (attempt < retries) {
-        // Exponential backoff
         const delay = RETRY_DELAY * Math.pow(2, attempt - 1);
         console.log(`⏳ Ожидание ${delay}ms перед повторной попыткой...`);
         await new Promise(resolve => setTimeout(resolve, delay));
@@ -197,19 +194,17 @@ async function fetchCsrfToken(retries = MAX_RETRIES): Promise<{ token: string | 
 
   console.error('❌ Не удалось получить CSRF токен после всех попыток');
 
-  // Notify all waiters with failure
   tokenFetchInProgress = false;
   const result = { token: null, cookies: null };
   tokenFetchWaiters.forEach(waiter => waiter(result));
   tokenFetchWaiters = [];
 
-  // If we have a stale cached token, use it as fallback
   if (cachedToken) {
     console.log('⚠️ Используется устаревший кэшированный токен в качестве fallback');
     return { token: cachedToken.token, cookies: cachedToken.cookies };
   }
 
-  throw new Error('CSRF token fetch failed: Remote service unavailable or blocked');
+  throw new Error('CSRF token fetch failed: Remote service unavailable or blocked. Please configure PROXY_URL environment variable with a residential proxy.');
 }
 
 // Get search results
@@ -338,36 +333,43 @@ async function getSearchResults(params: {
         url: BASE_URL,
         method: 'POST',
         body: formBody,
-        timeout: {
-          request: 20000
-        },
+        timeout: { request: 20000 },
         headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+          'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7,hy;q=0.6',
+          'Accept-Encoding': 'gzip, deflate, br',
+          'Cache-Control': 'max-age=0',
           'Content-Type': 'application/x-www-form-urlencoded',
           'Cookie': cookieString || '',
-          'Referer': BASE_URL,
           'Origin': 'https://prelive.elections.am',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-          'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7',
-          'Accept-Encoding': 'gzip, deflate, br',
-          'DNT': '1',
-          'Connection': 'keep-alive',
-          'Upgrade-Insecure-Requests': '1'
+          'Referer': BASE_URL,
+          'Sec-Ch-Ua': '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+          'Sec-Ch-Ua-Mobile': '?0',
+          'Sec-Ch-Ua-Platform': '"Windows"',
+          'Sec-Fetch-Dest': 'iframe',
+          'Sec-Fetch-Mode': 'navigate',
+          'Sec-Fetch-Site': 'same-origin',
+          'Sec-Fetch-User': '?1',
+          'Upgrade-Insecure-Requests': '1',
+          'DNT': '1'
         },
         headerGeneratorOptions: {
           browsers: [
             {
-              name: 'firefox',
-              minVersion: 145,
-              maxVersion: 150
+              name: 'chrome',
+              minVersion: 120,
+              maxVersion: 131
             }
           ],
           devices: ['desktop'],
-          locales: ['ru-RU', 'en-US'],
+          locales: ['ru-RU', 'en-US', 'hy-AM'],
           operatingSystems: ['windows']
         },
         proxyUrl: process.env.PROXY_URL,
         retry: {
-          limit: 1
+          limit: 2,
+          methods: ['POST']
         }
       });
 
