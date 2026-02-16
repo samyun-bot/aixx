@@ -258,3 +258,4 @@ The project is configured for easy deployment on [Render](https://render.com).
 Made with ❤️ for Armenian Election Registry
 # aix
 # aix
+# aixx
