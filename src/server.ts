@@ -123,7 +123,9 @@ async function fetchCsrfToken(retries = MAX_RETRIES): Promise<{ token: string | 
       const response = await gotScraping({
         url: BASE_URL,
         method: 'GET',
-        timeout: 15000,
+        timeout: {
+          request: 15000
+        },
         headerGeneratorOptions: {
           browsers: [
             {
@@ -194,7 +196,7 @@ async function fetchCsrfToken(retries = MAX_RETRIES): Promise<{ token: string | 
   }
 
   console.error('❌ Не удалось получить CSRF токен после всех попыток');
-  
+
   // Notify all waiters with failure
   tokenFetchInProgress = false;
   const result = { token: null, cookies: null };
@@ -336,7 +338,9 @@ async function getSearchResults(params: {
         url: BASE_URL,
         method: 'POST',
         body: formBody,
-        timeout: 20000,
+        timeout: {
+          request: 20000
+        },
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
           'Cookie': cookieString || '',
