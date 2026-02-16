@@ -1,9 +1,7 @@
 import express, { Request, Response, Express } from 'express';
 import path from 'path';
-import axios, { AxiosInstance } from 'axios';
+import { gotScraping } from 'got-scraping';
 import * as cheerio from 'cheerio';
-import { HttpCookieAgent, HttpsCookieAgent } from 'http-cookie-agent/http';
-import { CookieJar } from 'tough-cookie';
 
 const app: Express = express();
 const PORT = parseInt(process.env.PORT || '5000', 10);
@@ -12,7 +10,7 @@ const PORT = parseInt(process.env.PORT || '5000', 10);
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../public')));
 
-// Enable CORS for development
+// Enable CORS
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -57,87 +55,17 @@ interface CombinedResponse {
 
 // Constants
 const BASE_URL = 'https://prelive.elections.am/Register';
-const REQUEST_TIMEOUT = 60000;
-const PAGE_DELAY = 500; // Задержка между запросами страниц
-const MAX_RETRIES = 3; // Максимальное количество повторных попыток
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 2000;
 
-// Create axios instance with cookie jar
-function createAxiosInstance(cookieJar?: InstanceType<typeof CookieJar>): AxiosInstance {
-  const jar = cookieJar || new CookieJar();
-
-  return axios.create({
-    timeout: REQUEST_TIMEOUT,
-    httpAgent: new HttpCookieAgent({ cookies: { jar } }),
-    httpsAgent: new HttpsCookieAgent({ cookies: { jar } }),
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-      'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7,hy;q=0.6',
-      'Accept-Encoding': 'gzip, deflate, br',
-      'DNT': '1',
-      'Connection': 'keep-alive',
-      'Upgrade-Insecure-Requests': '1',
-      'Sec-Fetch-Dest': 'document',
-      'Sec-Fetch-Mode': 'navigate',
-      'Sec-Fetch-Site': 'none',
-      'Sec-Fetch-User': '?1',
-      'Cache-Control': 'max-age=0'
-    }
-  });
-}
-
-// Fetch CSRF token with retries
-async function fetchCsrfToken(retries = MAX_RETRIES): Promise<{ token: string | null; cookieJar: CookieJar | null }> {
-  for (let attempt = 1; attempt <= retries; attempt++) {
-    try {
-      const cookieJar = new CookieJar();
-      const client = createAxiosInstance(cookieJar);
-
-      console.log(`📡 Попытка получения CSRF токена #${attempt}...`);
-
-      const response = await client.get(BASE_URL);
-
-      console.log(`📡 CSRF Token fetch - Статус: ${response.status}`);
-
-      if (response.status === 200) {
-        const $ = cheerio.load(response.data);
-        const token = $('input[name="__RequestVerificationToken"]').val() as string;
-
-        if (token && token.length > 0) {
-          console.log('✓ Свежий токен получен успешно');
-          console.log(`✓ Токен: ${token.substring(0, 20)}...`);
-          return { token, cookieJar };
-        } else {
-          console.warn('⚠️ Токен не найден на странице');
-        }
-      }
-    } catch (error: any) {
-      console.error(`⚠️ Ошибка при получении токена (попытка ${attempt}/${retries}):`, error.message);
-
-      if (attempt < retries) {
-        const delay = attempt * 1000; // Увеличиваем задержку с каждой попыткой
-        console.log(`⏳ Ожидание ${delay}ms перед повторной попыткой...`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
-    }
-  }
-
-  console.error('❌ Не удалось получить CSRF токен после всех попыток');
-  return { token: null, cookieJar: null };
-}
-
-// Convert date format from DD/MM/YYYY to YYYY-MM-DD
+// Convert date format
 function convertDateFormat(dateStr: string): string {
-  if (!dateStr || !dateStr.trim()) {
-    return '';
-  }
+  if (!dateStr || !dateStr.trim()) return '';
 
   try {
     const parts = dateStr.split('/');
     if (parts.length === 3) {
       const [day, month, year] = parts;
-
-      // Validate date components
       const dayNum = parseInt(day, 10);
       const monthNum = parseInt(month, 10);
       const yearNum = parseInt(year, 10);
@@ -155,12 +83,71 @@ function convertDateFormat(dateStr: string): string {
   return '';
 }
 
-// Clean and normalize text
+// Clean text
 function cleanText(text: string): string {
   return text.replace(/\s+/g, ' ').trim();
 }
 
-// Get search results with improved error handling
+// Fetch CSRF token with got-scraping
+async function fetchCsrfToken(retries = MAX_RETRIES): Promise<{ token: string | null; cookies: string | null }> {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      console.log(`📡 Попытка получения CSRF токена #${attempt}...`);
+
+      const response = await gotScraping({
+        url: BASE_URL,
+        method: 'GET',
+        headerGeneratorOptions: {
+          browsers: [
+            {
+              name: 'firefox',
+              minVersion: 120,
+              maxVersion: 130
+            }
+          ],
+          devices: ['desktop'],
+          locales: ['ru-RU', 'en-US'],
+          operatingSystems: ['windows']
+        }
+      });
+
+      console.log(`📡 CSRF Token fetch - Статус: ${response.statusCode}`);
+
+      if (response.statusCode === 200) {
+        const $ = cheerio.load(response.body);
+        const token = $('input[name="__RequestVerificationToken"]').val() as string;
+
+        if (token && token.length > 0) {
+          console.log('✓ Свежий токен получен успешно');
+          console.log(`✓ Токен: ${token.substring(0, 20)}...`);
+
+          // Получаем cookies из ответа
+          const cookies = response.headers['set-cookie'];
+          const cookieString = cookies ? cookies.join('; ') : '';
+
+          return { token, cookies: cookieString };
+        } else {
+          console.warn('⚠️ Токен не найден на странице');
+        }
+      } else {
+        console.warn(`⚠️ Неожиданный статус: ${response.statusCode}`);
+      }
+    } catch (error: any) {
+      console.error(`⚠️ Ошибка при получении токена (попытка ${attempt}/${retries}):`, error.message);
+
+      if (attempt < retries) {
+        const delay = RETRY_DELAY * attempt;
+        console.log(`⏳ Ожидание ${delay}ms перед повторной попыткой...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+
+  console.error('❌ Не удалось получить CSRF токен после всех попыток');
+  return { token: null, cookies: null };
+}
+
+// Get search results
 async function getSearchResults(params: {
   firstName: string;
   lastName: string;
@@ -200,23 +187,17 @@ async function getSearchResults(params: {
   if (district) console.log(`📌 Район: ${district}`);
   console.log('='.repeat(80));
 
-  // Get CSRF token and cookie jar
-  const { token: csrfToken, cookieJar } = await fetchCsrfToken();
+  // Get CSRF token
+  const { token: csrfToken, cookies: cookieString } = await fetchCsrfToken();
 
-  if (!csrfToken || !cookieJar) {
+  if (!csrfToken) {
     throw new Error('Не удалось получить CSRF токен. Сервис может быть недоступен.');
   }
 
-  // Create client with the same cookie jar
-  const client = createAxiosInstance(cookieJar);
-  client.defaults.headers.common['Referer'] = BASE_URL;
-  client.defaults.headers.common['Origin'] = 'https://prelive.elections.am';
-
-  // Prepare form data - only include non-empty values
+  // Prepare form data
   const convertedBirthDate = convertDateFormat(birthDate);
 
-  // Build form data object dynamically - only include fields with values
-  const baseFormData: Record<string, string> = {
+  const formData: Record<string, string> = {
     'ShowCaptcha': 'False',
     'Input.Region': region || 'ԵՐԵՎԱՆ',
     'Current.Region': region || 'ԵՐԵՎԱՆ',
@@ -224,236 +205,155 @@ async function getSearchResults(params: {
     '__RequestVerificationToken': csrfToken
   };
 
-  // Add optional fields only if they have values
-  if (firstName && firstName.trim()) {
-    baseFormData['Current.FirstName'] = firstName;
-    baseFormData['Input.FirstName'] = firstName;
+  // Add fields conditionally
+  if (firstName) {
+    formData['Current.FirstName'] = firstName;
+    formData['Input.FirstName'] = firstName;
   }
 
-  if (lastName && lastName.trim()) {
-    baseFormData['Current.LastName'] = lastName;
-    baseFormData['Input.LastName'] = lastName;
+  if (lastName) {
+    formData['Current.LastName'] = lastName;
+    formData['Input.LastName'] = lastName;
   }
 
-  if (middleName && middleName.trim()) {
-    baseFormData['Current.MiddleName'] = middleName;
-    baseFormData['Input.MiddleName'] = middleName;
-  }
-
-  if (community && community.trim()) {
-    baseFormData['Input.Community'] = community;
-    baseFormData['Current.Community'] = community;
+  if (middleName) {
+    formData['Current.MiddleName'] = middleName;
+    formData['Input.MiddleName'] = middleName;
   }
 
   if (convertedBirthDate) {
-    baseFormData['Current.BirthDate'] = convertedBirthDate;
-    baseFormData['Input.BirthDateUI'] = convertedBirthDate;
+    formData['Current.BirthDate'] = convertedBirthDate;
+    formData['Input.BirthDateUI'] = convertedBirthDate;
   }
 
-  if (street && street.trim()) {
-    baseFormData['Current.Street'] = street;
-    baseFormData['Input.Street'] = street;
+  if (community) {
+    formData['Input.Community'] = community;
+    formData['Current.Community'] = community;
   }
 
-  if (building && building.trim()) {
-    baseFormData['Current.Building'] = building;
-    baseFormData['Input.Building'] = building;
+  if (street) {
+    formData['Current.Street'] = street;
+    formData['Input.Street'] = street;
   }
 
-  if (apartment && apartment.trim()) {
-    baseFormData['Current.Apartment'] = apartment;
-    baseFormData['Input.Apartment'] = apartment;
+  if (building) {
+    formData['Current.Building'] = building;
+    formData['Input.Building'] = building;
   }
 
-  if (district && district.trim()) {
-    baseFormData['Current.District'] = district;
-    baseFormData['Input.District'] = district;
+  if (apartment) {
+    formData['Current.Apartment'] = apartment;
+    formData['Input.Apartment'] = apartment;
+  }
+
+  if (district) {
+    formData['Current.District'] = district;
+    formData['Input.District'] = district;
   }
 
   const allResults: SearchResult[] = [];
-
-  // Определяем максимальное количество страниц
-  // Если указаны детали адреса, ограничиваем одной страницей
-  const hasAddressDetails = street || building || apartment;
-  const maxPages = hasAddressDetails ? 1 : 5;
-
   let page = 1;
-  let consecutiveEmptyPages = 0;
-  const maxConsecutiveEmptyPages = 2; // Прекращаем после 2 пустых страниц подряд
+  const maxPages = (street || building || apartment) ? 1 : 3;
 
-  console.log(`📄 Максимум страниц для обработки: ${maxPages}`);
-  console.log('─'.repeat(80));
-  console.log('📋 Данные, отправляемые на сервер:');
-  Object.entries(baseFormData).forEach(([key, value]) => {
-    if (!key.includes('Token')) {
-      console.log(`   ${key}: ${value}`);
-    }
-  });
   console.log('─'.repeat(80));
 
-  while (page <= maxPages && consecutiveEmptyPages < maxConsecutiveEmptyPages) {
-    const formData = { ...baseFormData, 'RegisterPaging.PageIndex': String(page) };
+  while (page <= maxPages) {
+    formData['RegisterPaging.PageIndex'] = String(page);
+
+    // Convert to URL-encoded format
+    const formBody = Object.keys(formData)
+      .map(key => encodeURIComponent(key) + '=' + encodeURIComponent(formData[key]))
+      .join('&');
 
     try {
-      // Convert to URL-encoded form data
-      const params = new URLSearchParams();
-      Object.entries(formData).forEach(([key, value]) => {
-        params.append(key, String(value));
-      });
-
       console.log(`📡 Запрос страницы ${page}...`);
-      console.log(`🔗 Параметры: ${params.toString().substring(0, 150)}...`);
 
-      const response = await client.post(BASE_URL, params, {
+      const response = await gotScraping({
+        url: BASE_URL,
+        method: 'POST',
+        body: formBody,
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
-          'X-Requested-With': 'XMLHttpRequest'
+          'Cookie': cookieString || '',
+          'Referer': BASE_URL,
+          'Origin': 'https://prelive.elections.am'
+        },
+        headerGeneratorOptions: {
+          browsers: [
+            {
+              name: 'firefox',
+              minVersion: 120,
+              maxVersion: 130
+            }
+          ],
+          devices: ['desktop'],
+          locales: ['ru-RU', 'en-US'],
+          operatingSystems: ['windows']
         }
       });
 
-      console.log(`📡 Страница ${page} - Статус: ${response.status}`);
+      console.log(`📡 Страница ${page} - Статус: ${response.statusCode}`);
 
-      // Debug: Log response size and check for common error patterns
-      console.log(`📏 Размер ответа: ${response.data.length} bytes`);
-
-      // Save response to file for debugging first page only
-      if (page === 1 && process.env.DEBUG_RESPONSE === 'true') {
-        const fs = require('fs');
-        fs.writeFileSync(`debug_response_page${page}.html`, response.data);
-        console.log(`📝 Ответ сохранён в debug_response_page${page}.html`);
-      }
-
-      // Check for common error responses
-      if (response.data.includes('Too Many Requests') || response.data.includes('429')) {
-        console.error('❌ Ошибка: Слишком много запросов (429). Сервер блокирует запросы.');
+      if (response.statusCode !== 200) {
+        console.log(`❌ Ошибка: Status Code ${response.statusCode}`);
         break;
       }
 
-      if (response.status !== 200) {
-        console.log(`❌ Ошибка: HTTP статус ${response.status}`);
+      const $ = cheerio.load(response.body);
+      const tableBody = $('tbody');
+
+      if (tableBody.length === 0) {
+        console.log(`✓ Страница ${page}: Нет таблицы результатов`);
         break;
       }
 
-      // Parse HTML response
-      const $ = cheerio.load(response.data);
-      const tbody = $('tbody');
-
-      if (!tbody.length || !tbody.html()?.trim()) {
-        consecutiveEmptyPages++;
-        console.log(`⚠️ Страница ${page}: Пустая таблица (${consecutiveEmptyPages}/${maxConsecutiveEmptyPages})`);
-
-        // Debug: Check if there's an error message in the response
-        const errorMsg = $('div.alert, div.error, .validation-summary').text();
-        if (errorMsg) {
-          console.log(`⚠️ Сообщение от сервера: ${errorMsg.substring(0, 100)}`);
-        }
-
-        // Check for alternative table structures
-        const dataTable = $('table.dataTable, table[role="grid"]');
-        const divTable = $('div[role="table"]');
-        console.log(`ℹ️ dataTable найдено: ${dataTable.length}, divTable: ${divTable.length}`);
-
-        if (consecutiveEmptyPages >= maxConsecutiveEmptyPages) {
-          console.log(`✓ Остановка: ${maxConsecutiveEmptyPages} пустых страниц подряд`);
-          break;
-        }
-
-        page++;
-        await new Promise(resolve => setTimeout(resolve, PAGE_DELAY));
-        continue;
-      }
-
-      const rows = $('tbody tr');
       const pageResults: SearchResult[] = [];
 
-      console.log(`📊 Найдено строк в таблице: ${rows.length}`);
+      tableBody.find('tr').each((index, row) => {
+        const $row = $(row);
+        const cells = $row.find('td');
 
-      // If no rows found, save response for debugging
-      if (rows.length === 0) {
-        const responsePreview = response.data.substring(0, 500);
-        console.log('💾 Первые 500 символов ответа:');
-        console.log(responsePreview);
-
-        // Try alternative selectors
-        const allTables = $('table');
-        const allRows = $('tr');
-        console.log(`ℹ️ Всего таблиц: ${allTables.length}, Всего строк (tr): ${allRows.length}`);
-      }
-
-      rows.each((index, row) => {
-        const $row = cheerio.load(row);
-        const cells = $row('td');
-
-        // Check if row is visible and has required cells
-        const isHidden = $row(row).attr('style')?.includes('display:none') ||
-                        $row(row).attr('style')?.includes('display: none');
+        const isHidden = $row.attr('style')?.includes('display:none') ||
+                        $row.attr('style')?.includes('display: none');
 
         if (cells.length >= 5 && !isHidden) {
           const result = {
-            name: cleanText(cells.eq(0).text()),
-            birth_date: cleanText(cells.eq(1).text()),
-            region_community: cleanText(cells.eq(2).text()),
-            address: cleanText(cells.eq(3).text()),
-            district: cleanText(cells.eq(4).text())
+            name: cleanText($(cells[0]).text()),
+            birth_date: cleanText($(cells[1]).text()),
+            region_community: cleanText($(cells[2]).text()),
+            address: cleanText($(cells[3]).text()),
+            district: cleanText($(cells[4]).text())
           };
 
-          // Only add if has meaningful data
           if (result.name && result.name.length > 0) {
             pageResults.push(result);
-
-            // Debug first row
-            if (index === 0) {
-              console.log(`   📌 Пример первой строки - ячеек найдено: ${cells.length}`);
-              console.log(`      Имя: ${result.name}`);
-              console.log(`      Дата: ${result.birth_date}`);
-            }
           }
-        } else if (cells.length < 5 && index === 0) {
-          console.log(`⚠️ Первая строка имеет только ${cells.length} ячеек (нужно 5+)`);
         }
       });
 
       if (pageResults.length > 0) {
-        consecutiveEmptyPages = 0; // Сбрасываем счетчик пустых страниц
         console.log(`✓ Страница ${page}: Найдено ${pageResults.length} результатов`);
         allResults.push(...pageResults);
 
-        // Show first result as example
         if (pageResults.length > 0) {
           const first = pageResults[0];
-          console.log(`   Пример: ${first.name} | ${first.birth_date} | ${first.address}`);
+          console.log(`   Пример: ${first.name} | ${first.birth_date}`);
         }
 
         page++;
       } else {
-        consecutiveEmptyPages++;
-        console.log(`⚠️ Страница ${page}: Нет результатов (${consecutiveEmptyPages}/${maxConsecutiveEmptyPages})`);
-
-        if (consecutiveEmptyPages >= maxConsecutiveEmptyPages) {
-          console.log(`✓ Остановка: ${maxConsecutiveEmptyPages} пустых страниц подряд`);
-          break;
-        }
-
-        page++;
-      }
-    } catch (error: any) {
-      console.error(`❌ Ошибка запроса на странице ${page}:`, error.message);
-
-      // Пробуем продолжить со следующей страницей
-      if (page < maxPages) {
-        console.log('⏭️ Пропускаем эту страницу и продолжаем...');
-        page++;
-        consecutiveEmptyPages++;
-        await new Promise(resolve => setTimeout(resolve, PAGE_DELAY * 2));
-        continue;
-      } else {
+        console.log(`✓ Страница ${page}: Нет результатов`);
         break;
       }
-    }
 
-    // Задержка между запросами для избежания блокировки
-    if (page <= maxPages) {
-      await new Promise(resolve => setTimeout(resolve, PAGE_DELAY));
+      // Delay between pages
+      if (page <= maxPages) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+
+    } catch (error: any) {
+      console.error(`❌ Ошибка запроса на странице ${page}:`, error.message);
+      break;
     }
   }
 
@@ -466,7 +366,7 @@ async function getSearchResults(params: {
   return allResults;
 }
 
-// Health check endpoint
+// Routes
 app.get('/api/health', (req: Request, res: Response) => {
   res.json({
     status: 'ok',
@@ -475,54 +375,34 @@ app.get('/api/health', (req: Request, res: Response) => {
   });
 });
 
-// Main page
 app.get('/', (req: Request, res: Response) => {
   res.sendFile(path.join(__dirname, '../public/index.html'));
 });
 
-// Search endpoint
 app.post('/api/search', async (req: Request, res: Response) => {
   const startTime = Date.now();
 
   try {
     const data = req.body as SearchParams;
 
-    // Normalize Armenian text (convert "և" to "եւ")
+    // Normalize Armenian text
     const firstName = normalizeArmenianText((data.first_name || '').trim());
     const lastName = normalizeArmenianText((data.last_name || '').trim());
 
-    // Get other parameters
-    const street = normalizeArmenianText((data.street || '').trim());
-    const building = normalizeArmenianText((data.building || '').trim());
-    const apartment = normalizeArmenianText((data.apartment || '').trim());
-    const district = normalizeArmenianText((data.district || '').trim());
-    const community = normalizeArmenianText((data.community || '').trim());
-    const birthDate = (data.birth_date || '').trim();
-
-    // ⚠️ CRITICAL: elections.am API requires BOTH first and last name
-    // Testing showed that date-only searches return empty results
+    // Validate
     if (!firstName || !lastName) {
-      console.warn('⚠️ Запрос отклонен: имя и фамилия обязательны (API elections.am не поддерживает поиск только по дате)');
+      console.warn('⚠️ Запрос отклонен: имя и фамилия обязательны');
       return res.status(400).json({
         success: false,
-        error: 'Name and surname are required (elections.am does not support search by date only) / Անունը և ազգանունը պարտադիր են'
+        error: 'Name and surname are required / Անունը և ազգանունը պարտադիր են'
       } as CombinedResponse);
     }
 
-    // Validate name lengths
-    if (firstName.length < 2) {
-      console.warn('⚠️ Запрос отклонен: имя слишком короткое');
+    if (firstName.length < 2 || lastName.length < 2) {
+      console.warn('⚠️ Запрос отклонен: имя/фамилия слишком короткие');
       return res.status(400).json({
         success: false,
-        error: 'First name must be at least 2 characters / Անունը պետք է լինել առնվազն 2 սիմվոլ'
-      } as CombinedResponse);
-    }
-
-    if (lastName.length < 2) {
-      console.warn('⚠️ Запрос отклонен: фамилия слишком короткая');
-      return res.status(400).json({
-        success: false,
-        error: 'Last name must be at least 2 characters / Ազգանունը պետք է լինել առնվազն 2 սիմվոլ'
+        error: 'Name must be at least 2 characters / Անունը պետք է լինել առնվազն 2 սիմվոլ'
       } as CombinedResponse);
     }
 
@@ -537,13 +417,13 @@ app.post('/api/search', async (req: Request, res: Response) => {
       firstName,
       lastName,
       region: normalizeArmenianText((data.region || 'ԵՐԵՎԱՆ').trim()),
-      community,
+      community: normalizeArmenianText((data.community || '').trim()),
       middleName: normalizeArmenianText((data.middle_name || '').trim()),
-      birthDate,
-      street,
-      building,
-      apartment,
-      district
+      birthDate: (data.birth_date || '').trim(),
+      street: normalizeArmenianText((data.street || '').trim()),
+      building: normalizeArmenianText((data.building || '').trim()),
+      apartment: normalizeArmenianText((data.apartment || '').trim()),
+      district: normalizeArmenianText((data.district || '').trim())
     });
 
     const duration = ((Date.now() - startTime) / 1000).toFixed(2);
@@ -585,15 +465,6 @@ app.use((req: Request, res: Response) => {
   res.status(404).json({
     success: false,
     error: 'Endpoint not found'
-  });
-});
-
-// Error handler
-app.use((error: Error, req: Request, res: Response, next: any) => {
-  console.error('💥 Необработанная ошибка:', error);
-  res.status(500).json({
-    success: false,
-    error: 'Internal server error'
   });
 });
 
