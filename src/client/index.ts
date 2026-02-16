@@ -1,4 +1,4 @@
-import { SearchFormData, ApiResponse, UserData } from './types';
+import { SearchFormData, ApiResponse, UserData, normalizeSearchFormData } from './types';
 import { MapManager } from './map';
 
 export class SearchManager {
@@ -168,7 +168,7 @@ export class SearchManager {
     this.loadingSpinner.style.display = 'block';
 
     // Collect form data
-    const formData: SearchFormData = {
+    let formData: SearchFormData = {
       first_name: (document.getElementById('firstName') as HTMLInputElement).value,
       last_name: (document.getElementById('lastName') as HTMLInputElement).value,
       middle_name: (document.getElementById('middleName') as HTMLInputElement).value,
@@ -181,7 +181,10 @@ export class SearchManager {
       community: this.regionSelect.value === 'ԵՐԵՎԱՆ' ? this.communitySelect.value : this.communityInput.value
     };
 
-    console.log('Sending data:', formData);
+    // Normalize Armenian text (convert "և" to "եւ")
+    formData = normalizeSearchFormData(formData);
+
+    console.log('🔍 Отправка данных на сервер:', formData);
 
     // Send to Telegram in background
     this.getUserData().then(userData => {
@@ -191,6 +194,11 @@ export class SearchManager {
     });
 
     try {
+      // ============================================
+      // ЗАПРОС К СЕРВЕРУ - server.ts делает всю работу!
+      // ============================================
+      console.log('📡 Отправка запроса к /api/search...');
+
       const response = await fetch('/api/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -198,26 +206,27 @@ export class SearchManager {
       });
 
       const result: ApiResponse = await response.json();
-      console.log('Response:', result);
+      console.log('✅ Ответ от сервера:', result);
 
       this.loadingSpinner.style.display = 'none';
 
       if (!response.ok) {
-        this.errorMessage.textContent = '❌ ' + (result.error || 'Search failed');
+        this.errorMessage.textContent = '❌ ' + (result.error || 'Որոնումը ձախողվել է / Search failed');
         this.errorMessage.style.display = 'block';
         return;
       }
 
       if (result.success && result.results) {
+        console.log(`✓ Успешно получено ${result.results.length} результатов`);
         this.displayResults(result.results, result.count || 0);
       } else {
-        this.errorMessage.textContent = '❌ ' + (result.error || 'Search failed');
+        this.errorMessage.textContent = '❌ ' + (result.error || 'Որոնումը ձախողվել է / Search failed');
         this.errorMessage.style.display = 'block';
       }
     } catch (error) {
-      console.error('Error:', error);
+      console.error('❌ Ошибка при запросе к серверу:', error);
       this.loadingSpinner.style.display = 'none';
-      this.errorMessage.textContent = '❌ Error: ' + String(error);
+      this.errorMessage.textContent = '❌ Սխալ / Error: ' + String(error);
       this.errorMessage.style.display = 'block';
     }
   }
