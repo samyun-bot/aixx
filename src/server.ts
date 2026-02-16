@@ -105,13 +105,17 @@ async function fetchCsrfToken(retries = MAX_RETRIES): Promise<{ token: string | 
           browsers: [
             {
               name: 'firefox',
-              minVersion: 120,
-              maxVersion: 130
+              minVersion: 145,
+              maxVersion: 150
             }
           ],
           devices: ['desktop'],
           locales: ['ru-RU', 'en-US'],
           operatingSystems: ['windows']
+        },
+        proxyUrl: process.env.PROXY_URL,
+        retry: {
+          limit: 2
         }
       });
 
@@ -280,19 +284,29 @@ async function getSearchResults(params: {
           'Content-Type': 'application/x-www-form-urlencoded',
           'Cookie': cookieString || '',
           'Referer': BASE_URL,
-          'Origin': 'https://prelive.elections.am'
+          'Origin': 'https://prelive.elections.am',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7',
+          'Accept-Encoding': 'gzip, deflate, br',
+          'DNT': '1',
+          'Connection': 'keep-alive',
+          'Upgrade-Insecure-Requests': '1'
         },
         headerGeneratorOptions: {
           browsers: [
             {
               name: 'firefox',
-              minVersion: 120,
-              maxVersion: 130
+              minVersion: 145,
+              maxVersion: 150
             }
           ],
           devices: ['desktop'],
           locales: ['ru-RU', 'en-US'],
           operatingSystems: ['windows']
+        },
+        proxyUrl: process.env.PROXY_URL,
+        retry: {
+          limit: 2
         }
       });
 
