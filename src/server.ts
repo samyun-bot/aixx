@@ -112,8 +112,11 @@ async function fetchCsrfToken(retries = MAX_RETRIES): Promise<{ token: string | 
         }
       }
     } catch (error: any) {
-      console.error(`⚠️ Ошибка при получении токена (попытка ${attempt}/${retries}):`, error.message);
-
+      console.error(`⚠️ Ошибка при получении токена (попытка ${attempt}/${retries}):`);
+      console.error('   Message:', error.message);
+      console.error('   Code:', error.code);
+      console.error('   Status:', error.response?.status);
+      
       if (attempt < retries) {
         const delay = attempt * 1000; // Увеличиваем задержку с каждой попыткой
         console.log(`⏳ Ожидание ${delay}ms перед повторной попыткой...`);
@@ -475,6 +478,48 @@ app.get('/api/health', (req: Request, res: Response) => {
   });
 });
 
+// Diagnostic endpoint to test outbound connectivity
+app.get('/api/diagnostics', async (req: Request, res: Response) => {
+  const diagnostics: any = {
+    timestamp: new Date().toISOString(),
+    nodeEnv: process.env.NODE_ENV,
+    nodeVersion: process.version
+  };
+
+  try {
+    console.log('🔍 Running diagnostics - testing outbound connectivity');
+    const startTime = Date.now();
+    
+    const client = createAxiosInstance();
+    const response = await client.get(BASE_URL, { timeout: 15000 });
+    
+    const duration = Date.now() - startTime;
+    diagnostics.connectivity = {
+      status: 'success',
+      targetUrl: BASE_URL,
+      responseStatus: response.status,
+      durationMs: duration,
+      dataSize: response.data.length
+    };
+
+    // Try to find CSRF token
+    const $ = cheerio.load(response.data);
+    const token = $('input[name="__RequestVerificationToken"]').val();
+    diagnostics.csrfToken = token ? 'found' : 'not_found';
+
+  } catch (error: any) {
+    diagnostics.connectivity = {
+      status: 'error',
+      targetUrl: BASE_URL,
+      errorMessage: error.message,
+      errorCode: error.code,
+      timeout: error.timeout
+    };
+  }
+
+  res.json(diagnostics);
+});
+
 // Main page
 app.get('/', (req: Request, res: Response) => {
   res.sendFile(path.join(__dirname, '../public/index.html'));
@@ -569,14 +614,25 @@ app.post('/api/search', async (req: Request, res: Response) => {
     console.error(`${'*'.repeat(80)}`);
     console.error('📋 Детали ошибки:', error.message);
     console.error('📚 Stack trace:', error.stack);
-    console.error(`⏱️ Время до ошибки: ${duration}s`);
+    console.error('🔧 Error code:', error.code);
+    console.error('⏱️ Время до ошибки: ${duration}s');
     console.error(`${'*'.repeat(80)}\n`);
+
+    // Provide more specific error messages
+    let userMessage = 'Произошла ошибка при поиске. Попробуйте позже. / An error occurred during search. Please try again later.';
+    
+    if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
+      userMessage = 'Сервис поиска временно недоступен. / Search service is temporarily unavailable.';
+    } else if (error.code === 'ETIMEDOUT' || error.message?.includes('timeout')) {
+      userMessage = 'Время ожидания истекло. Попробуйте снова. / Request timeout. Please try again.';
+    }
 
     return res.status(500).json({
       success: false,
-      error: 'Произошла ошибка при поиске. Попробуйте позже. / An error occurred during search. Please try again later.',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
-    } as CombinedResponse & { details?: string });
+      error: userMessage,
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+      errorCode: process.env.NODE_ENV === 'development' ? error.code : undefined
+    } as CombinedResponse & { details?: string; errorCode?: string });
   }
 });
 
