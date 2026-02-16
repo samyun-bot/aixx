@@ -61,6 +61,12 @@ interface CombinedResponse {
 const BASE_URL = 'https://prelive.elections.am/Register';
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 2000;
+const TOKEN_CACHE_DURATION = 5 * 60 * 1000; // Cache token for 5 minutes
+
+// Token cache
+let cachedToken: { token: string; cookies: string; timestamp: number } | null = null;
+let tokenFetchInProgress = false;
+let tokenFetchWaiters: Array<(result: { token: string | null; cookies: string | null }) => void> = [];
 
 // Convert date format
 function convertDateFormat(dateStr: string): string {
@@ -92,8 +98,24 @@ function cleanText(text: string): string {
   return text.replace(/\s+/g, ' ').trim();
 }
 
-// Fetch CSRF token with got-scraping
+// Fetch CSRF token with got-scraping (with caching)
 async function fetchCsrfToken(retries = MAX_RETRIES): Promise<{ token: string | null; cookies: string | null }> {
+  // Check if we have a valid cached token
+  if (cachedToken && Date.now() - cachedToken.timestamp < TOKEN_CACHE_DURATION) {
+    console.log('✓ Использование кэшированного CSRF токена');
+    return { token: cachedToken.token, cookies: cachedToken.cookies };
+  }
+
+  // If token fetch is already in progress, wait for it
+  if (tokenFetchInProgress) {
+    console.log('⏳ Ожидание текущей загрузки токена...');
+    return new Promise((resolve) => {
+      tokenFetchWaiters.push(resolve);
+    });
+  }
+
+  tokenFetchInProgress = true;
+
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       console.log(`📡 Попытка получения CSRF токена #${attempt}...`);
@@ -136,10 +158,22 @@ async function fetchCsrfToken(retries = MAX_RETRIES): Promise<{ token: string | 
           const cookies = response.headers['set-cookie'];
           const cookieString = cookies ? cookies.join('; ') : '';
 
-          return { token, cookies: cookieString };
+          // Cache the token
+          cachedToken = {
+            token,
+            cookies: cookieString,
+            timestamp: Date.now()
+          };
+
+          // Notify all waiters
+          const result = { token, cookies: cookieString };
+          tokenFetchInProgress = false;
+          tokenFetchWaiters.forEach(waiter => waiter(result));
+          tokenFetchWaiters = [];
+
+          return result;
         } else {
           console.warn('⚠️ Токен не найден на странице');
-          // Log first 500 chars of body for debugging
           console.warn(`📋 HTML preview: ${response.body.substring(0, 500)}`);
         }
       } else {
@@ -148,9 +182,11 @@ async function fetchCsrfToken(retries = MAX_RETRIES): Promise<{ token: string | 
       }
     } catch (error: any) {
       console.error(`⚠️ Ошибка при получении токена (попытка ${attempt}/${retries}):`, error.message);
+      console.error(`   Code: ${error.code}`);
 
       if (attempt < retries) {
-        const delay = RETRY_DELAY * attempt;
+        // Exponential backoff
+        const delay = RETRY_DELAY * Math.pow(2, attempt - 1);
         console.log(`⏳ Ожидание ${delay}ms перед повторной попыткой...`);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
@@ -158,6 +194,19 @@ async function fetchCsrfToken(retries = MAX_RETRIES): Promise<{ token: string | 
   }
 
   console.error('❌ Не удалось получить CSRF токен после всех попыток');
+  
+  // Notify all waiters with failure
+  tokenFetchInProgress = false;
+  const result = { token: null, cookies: null };
+  tokenFetchWaiters.forEach(waiter => waiter(result));
+  tokenFetchWaiters = [];
+
+  // If we have a stale cached token, use it as fallback
+  if (cachedToken) {
+    console.log('⚠️ Используется устаревший кэшированный токен в качестве fallback');
+    return { token: cachedToken.token, cookies: cachedToken.cookies };
+  }
+
   throw new Error('CSRF token fetch failed: Remote service unavailable or blocked');
 }
 
@@ -204,8 +253,9 @@ async function getSearchResults(params: {
   // Get CSRF token
   const { token: csrfToken, cookies: cookieString } = await fetchCsrfToken();
 
+  // csrfToken is guaranteed to be non-null here since fetchCsrfToken throws on failure
   if (!csrfToken) {
-    throw new Error('Не удалось получить CSRF токен. Сервис может быть недоступен.');
+    throw new Error('CSRF token is unexpectedly null');
   }
 
   // Prepare form data
@@ -216,7 +266,7 @@ async function getSearchResults(params: {
     'Input.Region': region || 'ԵՐԵՎԱՆ',
     'Current.Region': region || 'ԵՐԵՎԱՆ',
     'RegisterPaging.PageSize': '100',
-    '__RequestVerificationToken': csrfToken
+    '__RequestVerificationToken': csrfToken!
   };
 
   // Add fields conditionally
