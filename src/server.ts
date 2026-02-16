@@ -3,6 +3,10 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { gotScraping } from 'got-scraping';
 import * as cheerio from 'cheerio';
+import { config } from 'dotenv';
+
+// Load environment variables from .env file
+config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -98,14 +102,15 @@ function cleanText(text: string): string {
   return text.replace(/\s+/g, ' ').trim();
 }
 
-// Fetch CSRF token with got-scraping (with caching)
+// Fetch CSRF token with improved headers
 async function fetchCsrfToken(retries = MAX_RETRIES): Promise<{ token: string | null; cookies: string | null }> {
-  // Check cache first
+  // Check if we have a valid cached token
   if (cachedToken && Date.now() - cachedToken.timestamp < TOKEN_CACHE_DURATION) {
     console.log('✓ Использование кэшированного CSRF токена');
     return { token: cachedToken.token, cookies: cachedToken.cookies };
   }
 
+  // If token fetch is already in progress, wait for it
   if (tokenFetchInProgress) {
     console.log('⏳ Ожидание текущей загрузки токена...');
     return new Promise((resolve) => {
@@ -115,14 +120,26 @@ async function fetchCsrfToken(retries = MAX_RETRIES): Promise<{ token: string | 
 
   tokenFetchInProgress = true;
 
+  // Check if proxy is configured
+  if (!process.env.PROXY_URL) {
+    console.warn('⚠️⚠️⚠️ PROXY_URL не настроен! Сайт может заблокировать запросы с datacenter IP.');
+    console.warn('📝 Добавьте PROXY_URL в Environment Variables на Render');
+    console.warn('💡 Подробности: см. FIX_403_RENDER.md');
+  }
+
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       console.log(`📡 Попытка получения CSRF токена #${attempt}...`);
+      if (process.env.PROXY_URL) {
+        console.log(`🌐 Используется proxy: ${process.env.PROXY_URL.split('@')[1] || 'configured'}`);
+      }
 
       const response = await gotScraping({
         url: BASE_URL,
         method: 'GET',
-        timeout: { request: 20000 },
+        timeout: {
+          request: 20000
+        },
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
           'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
@@ -159,6 +176,8 @@ async function fetchCsrfToken(retries = MAX_RETRIES): Promise<{ token: string | 
       });
 
       console.log(`📡 CSRF Token fetch - Статус: ${response.statusCode}`);
+      console.log(`📡 Response size: ${response.body.length} bytes`);
+      console.log(`📡 Content-Type: ${response.headers['content-type']}`);
 
       if (response.statusCode === 200) {
         const $ = cheerio.load(response.body);
@@ -166,25 +185,52 @@ async function fetchCsrfToken(retries = MAX_RETRIES): Promise<{ token: string | 
 
         if (token && token.length > 0) {
           console.log('✓ Свежий токен получен успешно');
+          console.log(`✓ Токен длина: ${token.length}`);
+
+          // Получаем cookies из ответа
           const cookies = response.headers['set-cookie'];
           const cookieString = cookies ? cookies.join('; ') : '';
 
-          cachedToken = { token, cookies: cookieString, timestamp: Date.now() };
+          // Cache the token
+          cachedToken = {
+            token,
+            cookies: cookieString,
+            timestamp: Date.now()
+          };
 
+          // Notify all waiters
           const result = { token, cookies: cookieString };
           tokenFetchInProgress = false;
           tokenFetchWaiters.forEach(waiter => waiter(result));
           tokenFetchWaiters = [];
 
           return result;
+        } else {
+          console.warn('⚠️ Токен не найден на странице');
+          console.warn(`📋 HTML preview: ${response.body.substring(0, 500)}`);
         }
+      } else if (response.statusCode === 403) {
+        console.error('❌❌❌ ОШИБКА 403 FORBIDDEN ❌❌❌');
+        console.error('🚫 Сайт elections.am БЛОКИРУЕТ ваш IP адрес');
+        console.error('💡 РЕШЕНИЕ: Настройте residential proxy в PROXY_URL');
+        console.error('📖 Подробная инструкция в файле FIX_403_RENDER.md');
+        console.error('');
+        console.error('🔧 Быстрое решение:');
+        console.error('   1. Зарегистрируйтесь на https://www.webshare.io');
+        console.error('   2. Купите residential proxy ($2.99 minimum)');
+        console.error('   3. Добавьте PROXY_URL в Render Environment Variables');
+        console.error('   4. Format: http://username:password@proxy-host:port');
+        console.error('');
       } else {
         console.warn(`⚠️ Неожиданный статус: ${response.statusCode}`);
+        console.warn(`📋 Response: ${response.body.substring(0, 200)}`);
       }
     } catch (error: any) {
       console.error(`⚠️ Ошибка при получении токена (попытка ${attempt}/${retries}):`, error.message);
+      console.error(`   Code: ${error.code}`);
 
       if (attempt < retries) {
+        // Exponential backoff
         const delay = RETRY_DELAY * Math.pow(2, attempt - 1);
         console.log(`⏳ Ожидание ${delay}ms перед повторной попыткой...`);
         await new Promise(resolve => setTimeout(resolve, delay));
@@ -194,17 +240,19 @@ async function fetchCsrfToken(retries = MAX_RETRIES): Promise<{ token: string | 
 
   console.error('❌ Не удалось получить CSRF токен после всех попыток');
 
+  // Notify all waiters with failure
   tokenFetchInProgress = false;
   const result = { token: null, cookies: null };
   tokenFetchWaiters.forEach(waiter => waiter(result));
   tokenFetchWaiters = [];
 
+  // If we have a stale cached token, use it as fallback
   if (cachedToken) {
     console.log('⚠️ Используется устаревший кэшированный токен в качестве fallback');
     return { token: cachedToken.token, cookies: cachedToken.cookies };
   }
 
-  throw new Error('CSRF token fetch failed: Remote service unavailable or blocked. Please configure PROXY_URL environment variable with a residential proxy.');
+  throw new Error('CSRF token fetch failed: Remote service blocked requests (403 Forbidden). Please configure PROXY_URL environment variable with a residential proxy. See FIX_403_RENDER.md for details.');
 }
 
 // Get search results
@@ -247,74 +295,31 @@ async function getSearchResults(params: {
   if (district) console.log(`📌 Район: ${district}`);
   console.log('='.repeat(80));
 
-  // Get CSRF token
   const { token: csrfToken, cookies: cookieString } = await fetchCsrfToken();
 
-  // csrfToken is guaranteed to be non-null here since fetchCsrfToken throws on failure
   if (!csrfToken) {
-    throw new Error('CSRF token is unexpectedly null');
+    throw new Error('Cannot proceed without CSRF token');
   }
-
-  // Prepare form data
-  const convertedBirthDate = convertDateFormat(birthDate);
 
   const formData: Record<string, string> = {
-    'ShowCaptcha': 'False',
-    'Input.Region': region || 'ԵՐԵՎԱՆ',
-    'Current.Region': region || 'ԵՐԵՎԱՆ',
-    'RegisterPaging.PageSize': '100',
-    '__RequestVerificationToken': csrfToken!
+    '__RequestVerificationToken': csrfToken,
+    'SearchBy': 'SearchByData',
+    'FirstName': firstName,
+    'LastName': lastName,
+    'FatherName': middleName,
+    'BirthDate': convertDateFormat(birthDate),
+    'State': region,
+    'Community': community,
+    'Street': street,
+    'Building': building,
+    'Appartment': apartment,
+    'District': district,
+    'RegisterPaging.PageIndex': '1'
   };
-
-  // Add fields conditionally
-  if (firstName) {
-    formData['Current.FirstName'] = firstName;
-    formData['Input.FirstName'] = firstName;
-  }
-
-  if (lastName) {
-    formData['Current.LastName'] = lastName;
-    formData['Input.LastName'] = lastName;
-  }
-
-  if (middleName) {
-    formData['Current.MiddleName'] = middleName;
-    formData['Input.MiddleName'] = middleName;
-  }
-
-  if (convertedBirthDate) {
-    formData['Current.BirthDate'] = convertedBirthDate;
-    formData['Input.BirthDateUI'] = convertedBirthDate;
-  }
-
-  if (community) {
-    formData['Input.Community'] = community;
-    formData['Current.Community'] = community;
-  }
-
-  if (street) {
-    formData['Current.Street'] = street;
-    formData['Input.Street'] = street;
-  }
-
-  if (building) {
-    formData['Current.Building'] = building;
-    formData['Input.Building'] = building;
-  }
-
-  if (apartment) {
-    formData['Current.Apartment'] = apartment;
-    formData['Input.Apartment'] = apartment;
-  }
-
-  if (district) {
-    formData['Current.District'] = district;
-    formData['Input.District'] = district;
-  }
 
   const allResults: SearchResult[] = [];
   let page = 1;
-  const maxPages = (street || building || apartment) ? 1 : 3;
+  const maxPages = 50;
 
   console.log('─'.repeat(80));
 
@@ -333,26 +338,25 @@ async function getSearchResults(params: {
         url: BASE_URL,
         method: 'POST',
         body: formBody,
-        timeout: { request: 20000 },
+        timeout: {
+          request: 20000
+        },
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-          'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7,hy;q=0.6',
-          'Accept-Encoding': 'gzip, deflate, br',
-          'Cache-Control': 'max-age=0',
           'Content-Type': 'application/x-www-form-urlencoded',
           'Cookie': cookieString || '',
-          'Origin': 'https://prelive.elections.am',
           'Referer': BASE_URL,
-          'Sec-Ch-Ua': '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
-          'Sec-Ch-Ua-Mobile': '?0',
-          'Sec-Ch-Ua-Platform': '"Windows"',
-          'Sec-Fetch-Dest': 'iframe',
+          'Origin': 'https://prelive.elections.am',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7',
+          'Accept-Encoding': 'gzip, deflate, br',
+          'DNT': '1',
+          'Connection': 'keep-alive',
+          'Upgrade-Insecure-Requests': '1',
+          'Sec-Fetch-Dest': 'document',
           'Sec-Fetch-Mode': 'navigate',
           'Sec-Fetch-Site': 'same-origin',
-          'Sec-Fetch-User': '?1',
-          'Upgrade-Insecure-Requests': '1',
-          'DNT': '1'
+          'Sec-Fetch-User': '?1'
         },
         headerGeneratorOptions: {
           browsers: [
@@ -363,13 +367,12 @@ async function getSearchResults(params: {
             }
           ],
           devices: ['desktop'],
-          locales: ['ru-RU', 'en-US', 'hy-AM'],
+          locales: ['ru-RU', 'en-US'],
           operatingSystems: ['windows']
         },
         proxyUrl: process.env.PROXY_URL,
         retry: {
-          limit: 2,
-          methods: ['POST']
+          limit: 1
         }
       });
 
@@ -452,7 +455,8 @@ app.get('/api/health', (req: Request, res: Response) => {
   res.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
-    service: 'Armenian Election Registry Search API'
+    service: 'Armenian Election Registry Search API',
+    proxyConfigured: !!process.env.PROXY_URL
   });
 });
 
@@ -533,13 +537,20 @@ app.post('/api/search', async (req: Request, res: Response) => {
     console.error(`⏱️ Время до ошибки: ${duration}s`);
     console.error(`${'*'.repeat(80)}\n`);
 
-    // Return user-friendly error
-    const errorMessage = error.message || 'An error occurred during search';
+    // Check if it's a 403 error
+    if (error.message.includes('403') || error.message.includes('Forbidden') || error.message.includes('blocked')) {
+      return res.status(503).json({
+        success: false,
+        error: '🚫 Service blocked by remote server. Residential proxy required. / Ծառայությունը արգելափակված է։',
+        details: process.env.NODE_ENV === 'development' ? 'Configure PROXY_URL environment variable with residential proxy. See FIX_403_RENDER.md' : undefined
+      } as CombinedResponse & { details?: string });
+    }
 
+    // Return user-friendly error
     return res.status(500).json({
       success: false,
       error: 'Service unavailable. Please try again later. / Ծառայությունն անհասանելի է։',
-      details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
     } as CombinedResponse & { details?: string });
   }
 });
@@ -572,5 +583,14 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`🌐 URL: http://0.0.0.0:${PORT}`);
   console.log(`⏰ Время запуска: ${new Date().toLocaleString('ru-RU')}`);
   console.log(`🔧 Окружение: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🌐 Proxy: ${process.env.PROXY_URL ? '✅ Настроен' : '❌ НЕ НАСТРОЕН (требуется для Render!)'}`);
   console.log('='.repeat(80) + '\n');
+
+  if (!process.env.PROXY_URL) {
+    console.warn('⚠️⚠️⚠️ ВНИМАНИЕ ⚠️⚠️⚠️');
+    console.warn('PROXY_URL не настроен!');
+    console.warn('Сайт elections.am будет блокировать запросы на Render.');
+    console.warn('См. FIX_403_RENDER.md для решения.');
+    console.warn('');
+  }
 });
