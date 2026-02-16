@@ -1,0 +1,997 @@
+
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+    <!-- Meta Tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <base href="/" />
+
+    <!-- facebook and other social sites -->
+    <meta property="og:url" />
+    <meta property="og:type" content="article" />
+    <meta property="og:title" />
+    <meta property="og:description" />
+    <meta property="og:image" content="https://res.elections.am/images/logo5cm.png" />
+
+    <!-- twitter -->
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:site">
+    <meta name="twitter:title">
+    <meta name="twitter:description">
+    <meta name="twitter:image" content="https://res.elections.am/images/logo5cm.png">
+
+
+    <!-- Title -->
+    <title>&#x540;&#x540; &#x568;&#x576;&#x57F;&#x580;&#x578;&#x572;&#x576;&#x565;&#x580;&#x56B; &#x57C;&#x565;&#x563;&#x56B;&#x57D;&#x57F;&#x580;</title>
+
+    <!-- Favicon -->
+    <link rel="shortcut icon" type="image/x-icon" href="img/logo.gif">
+
+    <!-- Stylesheets -->
+    <!-- Latest compiled and minified CSS -->
+    <link href="lib/bootstrap/dist/css/bootstrap.min.css" rel="stylesheet" type="text/css" media="screen">
+    <!-- Optional theme -->
+    <link href="lib/bootstrap/dist/css/bootstrap-theme.min.css" rel="stylesheet" type="text/css" media="screen">
+    <link href="css/fontello.css" rel="stylesheet" type="text/css">
+    <link href="css/flexslider.css" rel="stylesheet" type="text/css">
+    <link href="js/revolution-slider/css/settings.css" rel="stylesheet" type="text/css" media="screen" />
+    <link href="css/owl.carousel.css" rel="stylesheet" type="text/css">
+    <link href="css/chosen.css" rel="stylesheet" type="text/css">
+
+    <link href="css/style.css" rel="stylesheet" type="text/css">
+    <link href="css/site.css" rel="stylesheet" type="text/css">
+    <link href="css/popup.css" rel="stylesheet" type="text/css">
+    <link href="css/accessibility.css" rel="stylesheet" type="text/css">
+
+
+
+    <!--[if IE 9]>
+        <link rel="stylesheet" href="~/css/ie9.css">
+    <![endif]-->
+    <!--[if lt IE 9]>
+        <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+        <link href="~/css/jackbox-ie8.css" rel="stylesheet" type="text/css" />
+        <link rel="stylesheet" href="~/css/ie.css">
+    <![endif]-->
+    <!--[if gt IE 8]>
+        <link href="~/css/jackbox-ie9.css" rel="stylesheet" type="text/css" />
+    <![endif]-->
+    <!--[if IE 7]>
+        <link rel="stylesheet" href="~/css/fontello-ie7.css">
+    <![endif]-->
+
+    <script src="lib/jquery/dist/jquery.min.js"></script>
+
+
+    <!-- Preloader -->
+    <script src="js/jquery.queryloader2.min.js"></script>
+
+    <script type="text/javascript">
+        $('html').addClass('no-fouc');
+
+        $(document).ready(function () {
+
+            $('html').show();
+
+            var window_w = $(window).width();
+            var window_h = $(window).height();
+            var window_s = $(window).scrollTop();
+
+            $("body").queryLoader2({
+                backgroundColor: '#f2f4f9',
+                barColor: '#63b2f5',
+                barHeight: 4,
+                percentage: false,
+                deepSearch: true,
+                minimumTime: 1000,
+                onComplete: function () {
+
+                    $('.animate-onscroll').filter(function (index) {
+
+                        return this.offsetTop < (window_s + window_h);
+
+                    }).each(function (index, value) {
+
+                        var el = $(this);
+                        var el_y = $(this).offset().top;
+
+                        if ((window_s) > el_y) {
+                            $(el).addClass('animated fadeInDown').removeClass('animate-onscroll');
+                            setTimeout(function () {
+                                $(el).css('opacity', '1').removeClass('animated fadeInDown');
+                            }, 2000);
+                        }
+
+                    });
+
+                }
+            });
+
+        });
+    </script>
+    <style type="text/css">
+        body, input, textarea, select, #tabs .ui-state-default {
+            font-family: Arial AMU, Arial Unicode, Verdana, Geneva, Arial, Helvetica, sans-serif, Georgia;
+            font-size: 13px;
+        }
+
+        .up-menu li, .f-menu-cont li {
+            font-size: 11px;
+        }
+    </style>
+    <script src="js/accessibility-visual.js"></script>
+    <!-- Accessibility Code for "elections.am" --> 
+</head>
+
+<body class="sticky-header-on tablet-sticky-header">
+    <!-- Header -->
+    <header id="header" class="animate-onscroll">
+
+        <!-- Main Header -->
+        <div id="main-header">
+            <div class="container">
+
+                <div class="row">
+
+                    <a class="header" href="/">
+                        <div class="header-gerb col-lg-2 col-md-2 col-sm-3 col-xs-12"></div>
+                        <div class="header-text col-lg-8 col-md-8 col-sm-9 col-xs-12">
+                            <div class="h3">&#x540;&#x561;&#x575;&#x561;&#x57D;&#x57F;&#x561;&#x576;&#x56B; &#x540;&#x561;&#x576;&#x580;&#x561;&#x57A;&#x565;&#x57F;&#x578;&#x582;&#x569;&#x575;&#x578;&#x582;&#x576;</div>
+                            <div class="h2">&#x53F;&#x565;&#x576;&#x57F;&#x580;&#x578;&#x576;&#x561;&#x56F;&#x561;&#x576; &#x538;&#x576;&#x57F;&#x580;&#x561;&#x56F;&#x561;&#x576; &#x540;&#x561;&#x576;&#x571;&#x576;&#x561;&#x56A;&#x578;&#x572;&#x578;&#x57E;</div>
+                        </div>
+                        <div class="header-logo col-lg-2 col-md-2 hidden-sm"></div>
+                    </a>
+
+                </div>
+
+            </div>
+
+        </div>
+        <!-- /Main Header -->
+        <!-- Lower Header -->
+        <div id="lower-header">
+
+            <div class="container">
+                <div class="row">
+                    <div id="menu-button">
+                        <div>
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                        </div>
+                        <span>&#x544;&#x565;&#x576;&#x575;&#x578;&#x582;</span>
+                    </div>
+
+                    <ul id="navigation">
+                        <li>
+                            <span>&#x53F;&#x538;&#x540;</span>
+                            <ul>
+                                
+    <li>
+        <a href="PageFor/About">&#x53F;&#x538;&#x540; &#x544;&#x561;&#x57D;&#x56B;&#x576;</a>
+    </li>
+    <li>
+        <a href="/CEC/Members">&#x53F;&#x538;&#x540; &#x531;&#x576;&#x564;&#x561;&#x574;&#x576;&#x565;&#x580;</a>
+    </li>
+    <li>
+        <a href="PageFor/Oversight Service">&#x54E;&#x565;&#x580;&#x561;&#x570;&#x57D;&#x56F;&#x56B;&#x579;-&#x57E;&#x565;&#x580;&#x57D;&#x57F;&#x578;&#x582;&#x563;&#x56B;&#x579; &#x56E;&#x561;&#x57C;&#x561;&#x575;&#x578;&#x582;&#x569;&#x575;&#x578;&#x582;&#x576;</a>
+    </li>
+    <li>
+        <a href="/CEC/Staff">&#x531;&#x577;&#x56D;&#x561;&#x57F;&#x561;&#x56F;&#x561;&#x566;&#x574;</a>
+    </li>
+    <li>
+        <a href="PageFor/Structure">&#x53F;&#x561;&#x57C;&#x578;&#x582;&#x581;&#x57E;&#x561;&#x56E;&#x584;</a>
+    </li>
+    <li>
+        <a href="/CEC/Decision">&#x548;&#x580;&#x578;&#x577;&#x578;&#x582;&#x574;&#x576;&#x565;&#x580;</a>
+    </li>
+    <li>
+        <a href="/CEC/Session">&#x546;&#x56B;&#x57D;&#x57F;&#x565;&#x580;</a>
+    </li>
+    <li>
+        <a href="/CEC/Announcement">&#x540;&#x561;&#x575;&#x57F;&#x561;&#x580;&#x561;&#x580;&#x578;&#x582;&#x569;&#x575;&#x578;&#x582;&#x576;&#x576;&#x565;&#x580;</a>
+    </li>
+    <li>
+        <a href="/CEC/Notification">&#x54E;&#x561;&#x580;&#x579;&#x561;&#x56F;&#x561;&#x576; &#x57E;&#x561;&#x580;&#x578;&#x582;&#x575;&#x569;&#x576;&#x565;&#x580;</a>
+    </li>
+
+                            </ul>
+                        </li>
+                        <li>
+                            <a href="TEC">&#x538;&#x576;&#x57F;&#x580;&#x561;&#x57F;&#x561;&#x580;&#x561;&#x56E;&#x584;&#x561;&#x575;&#x56B;&#x576; &#x538;&#x540;</a>
+                        </li>
+                        <li>
+                            <span>&#x538;&#x576;&#x57F;&#x580;&#x578;&#x582;&#x569;&#x575;&#x578;&#x582;&#x576;&#x576;&#x565;&#x580;</span>
+                            <ul>
+                                
+    <li>
+        <a href="/Elections/Parliamentary">&#x531;&#x566;&#x563;&#x561;&#x575;&#x56B;&#x576; &#x53A;&#x578;&#x572;&#x578;&#x57E;&#x56B;</a>
+    </li>
+    <li>
+        <a href="/Elections/LocalProportional"> &#x54F;&#x53B;&#x544; &#x570;&#x561;&#x574;&#x561;&#x574;&#x561;&#x57D;&#x576;&#x561;&#x56F;&#x561;&#x576;</a>
+    </li>
+    <li>
+        <a href="/Elections/MemberofCouncil">&#x561;&#x57E;&#x561;&#x563;&#x561;&#x576;&#x578;&#x582; &#x561;&#x576;&#x564;&#x561;&#x574;&#x56B;</a>
+    </li>
+    <li>
+        <a href="/Elections/HeadofCommunity">&#x570;&#x561;&#x574;&#x561;&#x575;&#x576;&#x584;&#x56B; &#x572;&#x565;&#x56F;&#x561;&#x57E;&#x561;&#x580;&#x56B;</a>
+    </li>
+    <li>
+        <a href="/Elections/ParliamentaryMajoritarian">&#x531;&#x53A; &#x574;&#x565;&#x56E;&#x561;&#x574;&#x561;&#x57D;&#x576;&#x561;&#x56F;&#x561;&#x576;</a>
+    </li>
+    <li>
+        <a href="/Elections/ParliamentaryProportional">&#x531;&#x53A; &#x540;&#x561;&#x574;&#x561;&#x574;&#x561;&#x57D;&#x576;&#x561;&#x56F;&#x561;&#x576;</a>
+    </li>
+    <li>
+        <a href="/Elections/Presidential">&#x540;&#x561;&#x576;&#x580;&#x561;&#x57A;&#x565;&#x57F;&#x578;&#x582;&#x569;&#x575;&#x561;&#x576; &#x546;&#x561;&#x56D;&#x561;&#x563;&#x561;&#x570;&#x56B;</a>
+    </li>
+    <li>
+        <a href="PageFor/Elections 1999-2005">&#x538;&#x576;&#x57F;&#x580;&#x578;&#x582;&#x569;&#x575;&#x578;&#x582;&#x576;&#x576;&#x565;&#x580; 1999-2005</a>
+    </li>
+    <li>
+        <a href="/Elections/General">&#x54F;&#x565;&#x572;&#x565;&#x56F;&#x561;&#x57F;&#x57E;&#x578;&#x582;&#x569;&#x575;&#x578;&#x582;&#x576;</a>
+    </li>
+
+
+                            </ul>
+                        </li>
+                        <li>
+                            <span>&#x540;&#x561;&#x576;&#x580;&#x561;&#x584;&#x57E;&#x565;</span>
+                            <ul>
+                                
+    <li>
+        <a href="/Referendum/LocalReferendum">&#x57F;&#x565;&#x572;&#x561;&#x56F;&#x561;&#x576; &#x570;&#x561;&#x576;&#x580;&#x561;&#x584;&#x57E;&#x565;</a>
+    </li>
+    <li>
+        <a href="/Referendum/Referendum">&#x540;&#x561;&#x576;&#x580;&#x561;&#x584;&#x57E;&#x565;</a>
+    </li>
+    <li>
+        <a href="PageFor/Initiative to Propose a Draft Law to the National Assembly">&#x531;&#x566;&#x563;&#x561;&#x575;&#x56B;&#x576; &#x56A;&#x578;&#x572;&#x578;&#x57E;&#x56B;&#x576; &#x585;&#x580;&#x565;&#x576;&#x584;&#x56B; &#x576;&#x561;&#x56D;&#x561;&#x563;&#x56B;&#x56E; &#x561;&#x57C;&#x561;&#x57B;&#x561;&#x580;&#x56F;&#x565;&#x56C;&#x578;&#x582; &#x576;&#x561;&#x56D;&#x561;&#x571;&#x565;&#x57C;&#x576;&#x578;&#x582;&#x569;&#x575;&#x578;&#x582;&#x576;</a>
+    </li>
+    <li>
+        <a href="PageFor/Referendum Initiatives">&#x540;&#x561;&#x576;&#x580;&#x561;&#x584;&#x57E;&#x565;&#x56B; &#x576;&#x561;&#x56D;&#x561;&#x571;&#x565;&#x57C;&#x576;&#x578;&#x582;&#x569;&#x575;&#x578;&#x582;&#x576;&#x576;&#x565;&#x580;</a>
+    </li>
+
+                            </ul>
+                        </li>
+                        <li>
+                            <span>&#x54F;&#x565;&#x572;&#x565;&#x56F;&#x561;&#x57F;&#x57E;&#x561;&#x56F;&#x561;&#x576; &#x56F;&#x565;&#x576;&#x57F;&#x580;&#x578;&#x576;</span>
+                            <ul>
+                                
+    <li>
+        <a href="/News">&#x546;&#x578;&#x580;&#x578;&#x582;&#x569;&#x575;&#x578;&#x582;&#x576;&#x576;&#x565;&#x580;</a>
+    </li>
+    <li>
+        <a href="/Meetings">&#x540;&#x561;&#x576;&#x564;&#x56B;&#x57A;&#x578;&#x582;&#x574;&#x576;&#x565;&#x580;, &#x561;&#x575;&#x581;&#x565;&#x580;</a>
+    </li>
+    <li>
+        <a href="PageFor/Analysis Reports">&#x54E;&#x565;&#x580;&#x56C;&#x578;&#x582;&#x56E;&#x578;&#x582;&#x569;&#x575;&#x578;&#x582;&#x576;&#x576;&#x565;&#x580;, &#x570;&#x561;&#x577;&#x57E;&#x565;&#x57F;&#x57E;&#x578;&#x582;&#x569;&#x575;&#x578;&#x582;&#x576;&#x576;&#x565;&#x580;</a>
+    </li>
+    <li>
+        <a href="PageFor/Interviews">&#x540;&#x561;&#x580;&#x581;&#x561;&#x566;&#x580;&#x578;&#x582;&#x575;&#x581;&#x576;&#x565;&#x580;</a>
+    </li>
+    <li>
+        <a href="PageFor/Certification of Territorial Electoral Commission Members">&#x538;&#x538;&#x540; &#x561;&#x576;&#x564;&#x561;&#x574;&#x576;&#x565;&#x580;&#x56B; &#x561;&#x57F;&#x565;&#x57D;&#x57F;&#x561;&#x57E;&#x578;&#x580;&#x578;&#x582;&#x574;</a>
+    </li>
+    <li>
+        <a href="PageFor/Professional Training">&#x544;&#x561;&#x57D;&#x576;&#x561;&#x563;&#x56B;&#x57F;&#x561;&#x56F;&#x561;&#x576; &#x564;&#x561;&#x57D;&#x568;&#x576;&#x569;&#x561;&#x581;&#x576;&#x565;&#x580;</a>
+    </li>
+    <li>
+        <a href="PageFor/CEC comments and clarifications">&#x53F;&#x538;&#x540; &#x564;&#x56B;&#x57F;&#x578;&#x572;&#x578;&#x582;&#x569;&#x575;&#x578;&#x582;&#x576;&#x576;&#x565;&#x580;&#x576; &#x578;&#x582; &#x57A;&#x561;&#x580;&#x566;&#x561;&#x562;&#x561;&#x576;&#x578;&#x582;&#x574;&#x576;&#x565;&#x580;&#x568;</a>
+    </li>
+    <li>
+        <a href="PageFor/Civil service">&#x554;&#x561;&#x572;&#x561;&#x584;&#x561;&#x581;&#x56B;&#x561;&#x56F;&#x561;&#x576; &#x56E;&#x561;&#x57C;&#x561;&#x575;&#x578;&#x582;&#x569;&#x575;&#x578;&#x582;&#x576;</a>
+    </li>
+    <li>
+        <a href="PageFor/Officer for system of whistle-blowing and information">&#x531;&#x566;&#x564;&#x561;&#x580;&#x561;&#x580;&#x574;&#x561;&#x576; &#x570;&#x561;&#x574;&#x561;&#x56F;&#x561;&#x580;&#x563;&#x56B; &#x57A;&#x561;&#x57F;&#x561;&#x57D;&#x56D;&#x561;&#x576;&#x561;&#x57F;&#x578;&#x582; &#x587; &#x57F;&#x565;&#x572;&#x565;&#x56F;&#x561;&#x57F;&#x57E;&#x578;&#x582;&#x569;&#x575;&#x578;&#x582;&#x576;</a>
+    </li>
+    <li>
+        <a href="PageFor/Involvement of Experts">&#x553;&#x578;&#x580;&#x571;&#x561;&#x563;&#x565;&#x57F;&#x576;&#x565;&#x580;&#x56B; &#x576;&#x565;&#x580;&#x563;&#x580;&#x561;&#x57E;&#x578;&#x582;&#x574;</a>
+    </li>
+    <li>
+        <a href="PageFor/Budget Applications">&#x544;&#x53A;&#x53E;&#x53E; &#x562;&#x575;&#x578;&#x582;&#x57B;&#x565;&#x57F;&#x561;&#x575;&#x56B;&#x576; &#x570;&#x561;&#x575;&#x57F;&#x565;&#x580;</a>
+    </li>
+    <li>
+        <a href="PageFor/Responsible official for anti-corruption programs">&#x540;&#x561;&#x56F;&#x561;&#x56F;&#x578;&#x57C;&#x578;&#x582;&#x57A;&#x581;&#x56B;&#x578;&#x576; &#x56E;&#x580;&#x561;&#x563;&#x580;&#x565;&#x580;&#x56B; &#x57A;&#x561;&#x57F;&#x561;&#x57D;&#x56D;&#x561;&#x576;&#x561;&#x57F;&#x578;&#x582;</a>
+    </li>
+
+                            </ul>
+                        </li>
+                        <li>
+                            <span>&#x546;&#x575;&#x578;&#x582;&#x569;&#x565;&#x580;</span>
+                            <ul>
+                                
+    <li>
+        <a href="PageFor/Legislation">&#x555;&#x580;&#x565;&#x576;&#x57D;&#x564;&#x580;&#x578;&#x582;&#x569;&#x575;&#x578;&#x582;&#x576;</a>
+    </li>
+    <li>
+        <a href="PageFor/Electronic Forms">&#x537;&#x56C;&#x565;&#x56F;&#x57F;&#x580;&#x578;&#x576;&#x561;&#x575;&#x56B;&#x576; &#x571;&#x587;&#x561;&#x569;&#x572;&#x569;&#x565;&#x580;</a>
+    </li>
+    <li>
+        <a href="PageFor/Guides Manuals">&#x541;&#x565;&#x57C;&#x576;&#x561;&#x580;&#x56F;&#x576;&#x565;&#x580;, &#x578;&#x582;&#x572;&#x565;&#x581;&#x578;&#x582;&#x575;&#x581;&#x565;&#x580;</a>
+    </li>
+    <li>
+        <a href="PageFor/E-Library">&#x537;&#x56C;&#x565;&#x56F;&#x57F;&#x580;&#x578;&#x576;&#x561;&#x575;&#x56B;&#x576; &#x563;&#x580;&#x561;&#x564;&#x561;&#x580;&#x561;&#x576;</a>
+    </li>
+
+                            </ul>
+                        </li>
+                        <li class="language">
+                            
+    <form id="selectLanguage" method="post" role="form" action="/Culture/SetCulture?redirectUri=%2FRegister">
+            <img src="/img/armenia-flag.png" width="30" />
+        <select style="border:none; background:none; box-shadow:none; width:100px; cursor:pointer" name="culture" onchange="this.form.submit()" id="RequestCultureName"><option value="en">English</option>
+<option selected="selected" value="hy">&#x540;&#x561;&#x575;&#x565;&#x580;&#x565;&#x576;</option>
+</select>
+    <input name="__RequestVerificationToken" type="hidden" value="CfDJ8EG42My9Qs1Pr2CPStDLuW76Oiqu0dRuWIFtV7IphSQ7jHeHB8lfBtGaBo8wgmWxdc_eGvvJ8NwtkaXmQtlSxKZNgC4hdDo0_R4oXpzMcltMDKCIoxvSwuye5e2bLW24144iD_hM3lxBQZdP3k6YkAk" /></form>
+
+
+                        </li>
+                        <!-- /Blog -->
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <!-- /Lower Header -->
+    </header>
+    <!-- /Header -->
+
+    <section id="content">
+        <div class="container">
+    <div class="row">
+        <div class="col-lg-9" style="border-right: 1px solid #eee; padding:0 20px 30px 0">
+            <h2>&#x540;&#x540; &#x568;&#x576;&#x57F;&#x580;&#x578;&#x572;&#x576;&#x565;&#x580;&#x56B; &#x57C;&#x565;&#x563;&#x56B;&#x57D;&#x57F;&#x580;</h2>
+            <hr />
+            <div>
+                <div style="background-color: #fafbfd; padding: 10px; font-size: 16px; border-left: 4px solid #3598db; color: #888;"><span style="color: #3598db;"><strong>ԾԱՆՈԹՈՒԹՅՈՒՆ`</strong></span></div>
+<div style="background-color: #fafbfd; padding: 10px; font-size: 16px; border-left: 4px solid #3598db; color: #888;">Պարտադիր լրացման ենթակա են ազգանվան, անվան դաշտերը: Մնացած տվյալները լրացվում են ըստ անհրաժեշտության` առավել ճշգրիտ որոնման արդյունք ստանալու համար:</div>
+<div style="background-color: #fafbfd; padding: 10px; font-size: 16px; border-left: 4px solid #3598db; color: #888;">ք.Երևանի դեպքում մարզ դաշտում լրացվում է Երեվան,համայնքը դաշտում` վարչական շրջանի անվանումը: Որոնման տվյալներում<strong>&nbsp;<span style="color: #3598db;">"և"</span></strong><span style="color: #e67e23;">&nbsp;</span>տառի առկայության դեպքում լրացնել&nbsp;<strong><span style="color: #3598db;">"եւ"</span></strong>&nbsp;տառերի համակցությունը:</div>
+<div style="background-color: #fafbfd; padding: 10px; font-size: 16px; border-left: 4px solid #3598db; color: #888;"><span style="color: #e03e2d; font-size: 10pt;"><strong>ՀՀ ընտրողների ռեգիստրն ըստ 2025թ. Նոյեմբերի 6-ին ՀՀ ներքին գործերի նախարարության կողմից տրամադրված տեղեկությունների</strong></span></div>
+<hr />
+<div style="background-color: #fafbfd; padding: 10px; font-size: 16px; border-left: 4px solid #ff6a00; color: #888;"><strong><span style="color: #ff6a00;">ՈՒՇԱԴՐՈՒԹՅՈՒՆ`</span></strong></div>
+<div style="background-color: #fafbfd; padding: 10px; font-size: 16px; border-left: 4px solid #ff6a00; color: #888;">Որոնման արդյունքում ստացված տեղեկությունների հասցեի հատվածից հղում կատարելով հնարավոր է տեսնել նշված հասցեում հաշվառված բոլոր ընտրողների տվյալները` անուն, ազգանուն, հայրանունը, ծննդյան օրը, ամիսը, տարեթիվը:</div>
+            </div>
+            <hr />
+            <form method="post" enctype="multipart/form-data">
+                <input type="hidden" value="False" data-val="true" data-val-required="The ShowCaptcha field is required." id="ShowCaptcha" name="ShowCaptcha" />
+
+                <input type="hidden" id="Input_Region" name="Input.Region" value="&#x535;&#x550;&#x535;&#x54E;&#x531;&#x546;" />
+                <input type="hidden" id="Input_Community" name="Input.Community" value="" />
+
+                <input type="hidden" value="" id="Current_FirstName" name="Current.FirstName" />
+                <input type="hidden" value="" id="Current_LastName" name="Current.LastName" />
+                <input type="hidden" value="" id="Current_MiddleName" name="Current.MiddleName" />
+                <input type="hidden" value="1989-02-13" id="Current_BirthDate" name="Current.BirthDate" />
+                <input type="hidden" value="&#x535;&#x550;&#x535;&#x54E;&#x531;&#x546;" id="Current_Region" name="Current.Region" />
+                <input type="hidden" value="" id="Current_Community" name="Current.Community" />
+                <input type="hidden" value="" id="Current_Street" name="Current.Street" />
+                <input type="hidden" value="" id="Current_Building" name="Current.Building" />
+                <input type="hidden" value="" id="Current_Apartment" name="Current.Apartment" />
+                <input type="hidden" value="" id="Current_District" name="Current.District" />
+
+
+                <div class="search" style="margin-top:20px;">
+                    <div class="row">
+                        <div class="col-lg-3 col-md-6">
+                            <label>Անուն</label>
+                            <input class="form-control" type="text" id="Input_FirstName" name="Input.FirstName" value="" />
+                        </div>
+                        <div class="col-lg-3 col-md-6">
+                            <label>Ազգանուն</label>
+                            <input class="form-control" type="text" id="Input_LastName" name="Input.LastName" value="" />
+                        </div>
+                        <div class="col-lg-3 col-md-6">
+                            <label>Հայրանուն</label>
+                            <input class="form-control" type="text" id="Input_MiddleName" name="Input.MiddleName" value="" />
+                        </div>
+                        <div class="col-lg-3 col-md-6">
+                            <label>Ծննդյան ա/թ</label>
+                            <input class="form-control" type="date" id="Input_BirthDateUI" name="Input.BirthDateUI" value="1989-02-13" />
+                        </div>
+                        <div class="col-lg-3 col-md-6">
+                            <label>Մարզ</label>
+                            <select id="SearchRegionCode" class="form-control chosen-select RegionCode" onchange="RegionChange('Search')"></select>
+                        </div>
+                        <div class="col-lg-3 col-md-6">
+                            <label>Համայնք</label>
+                            <select id="SearchCommunityCode" class="form-control chosen-select CommunityCode" onchange="CommunityChange('Search')"></select>
+                        </div>
+                        <div class="col-lg-3 col-md-6">
+                            <label>Փողոց</label>
+                            <input class="form-control" type="text" id="Input_Street" name="Input.Street" value="" />
+                        </div>
+                        <div class="col-lg-3 col-md-6">
+                            <div class="col-xs-6" style="padding:0 10px 0 0">
+                                <label>Տուն</label>
+                                <input class="form-control" type="text" id="Input_Building" name="Input.Building" value="" />
+                            </div>
+                            <div class="col-xs-6" style="padding:0 0 0 10px">
+                                <label>Բնակ․</label>
+                                <input class="form-control" type="text" id="Input_Apartment" name="Input.Apartment" value="" />
+                            </div>
+                        </div>
+                        <div class="col-lg-3 col-md-6">
+                            <label>ԸԸՀ</label>
+                            <select class="form-control chosen-select" id="Input_District" name="Input.District">
+                                    <option value="" selected="selected">-- &#x532;&#x578;&#x56C;&#x578;&#x580;&#x568; --</option>
+                                    <option value="1">&#x539;&#x56B;&#x57E; 1 &#x538;&#x538;&#x540;</option>
+                                    <option value="2">&#x539;&#x56B;&#x57E; 2 &#x538;&#x538;&#x540;</option>
+                                    <option value="3">&#x539;&#x56B;&#x57E; 3 &#x538;&#x538;&#x540;</option>
+                                    <option value="4">&#x539;&#x56B;&#x57E; 4 &#x538;&#x538;&#x540;</option>
+                                    <option value="5">&#x539;&#x56B;&#x57E; 5 &#x538;&#x538;&#x540;</option>
+                                    <option value="6">&#x539;&#x56B;&#x57E; 6 &#x538;&#x538;&#x540;</option>
+                                    <option value="7">&#x539;&#x56B;&#x57E; 7 &#x538;&#x538;&#x540;</option>
+                                    <option value="8">&#x539;&#x56B;&#x57E; 8 &#x538;&#x538;&#x540;</option>
+                                    <option value="9">&#x539;&#x56B;&#x57E; 9 &#x538;&#x538;&#x540;</option>
+                                    <option value="10">&#x539;&#x56B;&#x57E; 10 &#x538;&#x538;&#x540;</option>
+                                    <option value="11">&#x539;&#x56B;&#x57E; 11 &#x538;&#x538;&#x540;</option>
+                                    <option value="12">&#x539;&#x56B;&#x57E; 12 &#x538;&#x538;&#x540;</option>
+                                    <option value="13">&#x539;&#x56B;&#x57E; 13 &#x538;&#x538;&#x540;</option>
+                                    <option value="14">&#x539;&#x56B;&#x57E; 14 &#x538;&#x538;&#x540;</option>
+                                    <option value="15">&#x539;&#x56B;&#x57E; 15 &#x538;&#x538;&#x540;</option>
+                                    <option value="16">&#x539;&#x56B;&#x57E; 16 &#x538;&#x538;&#x540;</option>
+                                    <option value="17">&#x539;&#x56B;&#x57E; 17 &#x538;&#x538;&#x540;</option>
+                                    <option value="18">&#x539;&#x56B;&#x57E; 18 &#x538;&#x538;&#x540;</option>
+                                    <option value="19">&#x539;&#x56B;&#x57E; 19 &#x538;&#x538;&#x540;</option>
+                                    <option value="20">&#x539;&#x56B;&#x57E; 20 &#x538;&#x538;&#x540;</option>
+                                    <option value="21">&#x539;&#x56B;&#x57E; 21 &#x538;&#x538;&#x540;</option>
+                                    <option value="22">&#x539;&#x56B;&#x57E; 22 &#x538;&#x538;&#x540;</option>
+                                    <option value="23">&#x539;&#x56B;&#x57E; 23 &#x538;&#x538;&#x540;</option>
+                                    <option value="24">&#x539;&#x56B;&#x57E; 24 &#x538;&#x538;&#x540;</option>
+                                    <option value="25">&#x539;&#x56B;&#x57E; 25 &#x538;&#x538;&#x540;</option>
+                                    <option value="26">&#x539;&#x56B;&#x57E; 26 &#x538;&#x538;&#x540;</option>
+                                    <option value="27">&#x539;&#x56B;&#x57E; 27 &#x538;&#x538;&#x540;</option>
+                                    <option value="28">&#x539;&#x56B;&#x57E; 28 &#x538;&#x538;&#x540;</option>
+                                    <option value="29">&#x539;&#x56B;&#x57E; 29 &#x538;&#x538;&#x540;</option>
+                                    <option value="30">&#x539;&#x56B;&#x57E; 30 &#x538;&#x538;&#x540;</option>
+                                    <option value="31">&#x539;&#x56B;&#x57E; 31 &#x538;&#x538;&#x540;</option>
+                                    <option value="32">&#x539;&#x56B;&#x57E; 32 &#x538;&#x538;&#x540;</option>
+                                    <option value="33">&#x539;&#x56B;&#x57E; 33 &#x538;&#x538;&#x540;</option>
+                                    <option value="34">&#x539;&#x56B;&#x57E; 34 &#x538;&#x538;&#x540;</option>
+                                    <option value="35">&#x539;&#x56B;&#x57E; 35 &#x538;&#x538;&#x540;</option>
+                                    <option value="36">&#x539;&#x56B;&#x57E; 36 &#x538;&#x538;&#x540;</option>
+                                    <option value="37">&#x539;&#x56B;&#x57E; 37 &#x538;&#x538;&#x540;</option>
+                                    <option value="38">&#x539;&#x56B;&#x57E; 38 &#x538;&#x538;&#x540;</option>
+                            </select>
+                        </div>
+                        <div style="clear:both"></div>
+
+                        <div class="col-lg-12" style="text-align:right">
+                            <hr />
+                            <a class="button" style="cursor:pointer" onclick="Reset()">Մաքրել</a>
+                            <button>Որոնել</button>
+                        </div>
+                    </div>
+                </div>
+                <hr />
+
+            <input name="__RequestVerificationToken" type="hidden" value="CfDJ8EG42My9Qs1Pr2CPStDLuW76Oiqu0dRuWIFtV7IphSQ7jHeHB8lfBtGaBo8wgmWxdc_eGvvJ8NwtkaXmQtlSxKZNgC4hdDo0_R4oXpzMcltMDKCIoxvSwuye5e2bLW24144iD_hM3lxBQZdP3k6YkAk" /></form>
+
+        </div>
+        <div class="col-lg-3" style="padding-top:30px; padding-bottom:30px">
+            
+<link href="/lib/caleandar-master/css/calendar.css" rel="stylesheet" />
+<link href="/lib/caleandar-master/css/theme.css" rel="stylesheet" />
+
+
+
+
+
+
+<div class="banner-wrapper">
+    <a class="banner" href="Live">
+        <i class="icons icon-video"></i>
+        <h4>&#x53F;&#x538;&#x540; &#x576;&#x56B;&#x57D;&#x57F;&#x565;&#x580;&#x56B;</h4>
+        <p>&#x578;&#x582;&#x572;&#x56B;&#x572; &#x570;&#x565;&#x57C;&#x561;&#x580;&#x571;&#x561;&#x56F;&#x578;&#x582;&#x574;</p>
+    </a>
+</div>
+
+
+<div class="banner-wrapper">
+    <a class="banner animate-onscroll" target="_blank" href="https://my.elections.am/">
+        <i class="icons" style="margin-left:10px">
+            <img src="/img/signature.png" />
+        </i>
+        <h4>&#x564;&#x561;&#x57D;&#x568;&#x576;&#x569;&#x561;&#x581;&#x576;&#x565;&#x580;</h4>
+        <p>&#x531;&#x576;&#x571;&#x576;&#x561;&#x56F;&#x561;&#x576; &#x57D;&#x565;&#x576;&#x575;&#x561;&#x56F;</p>
+       
+    </a>
+</div>
+
+
+
+
+
+<div class="banner-wrapper">
+    <a class="banner animate-onscroll" target="_blank" href="https://www.elections.am/PageFor/Officer%20for%20system%20of%20whistle-blowing%20and%20information">
+        <i class="icons" style="margin-left:10px">
+            <img src="/img/azd.png" />
+        </i>
+        <h4>&#x531;&#x566;&#x564;&#x561;&#x580;&#x561;&#x580;&#x574;&#x561;&#x576; &#x570;&#x561;&#x574;&#x561;&#x56F;&#x561;&#x580;&#x563;&#x56B; &#x57A;&#x561;&#x57F;&#x561;&#x57D;&#x56D;&#x561;&#x576;&#x561;&#x57F;&#x578;&#x582;</h4>
+        <p>&#x587; &#x57F;&#x565;&#x572;&#x565;&#x56F;&#x561;&#x57F;&#x57E;&#x578;&#x582;&#x569;&#x575;&#x578;&#x582;&#x576;</p>
+    </a>
+</div>
+
+<div class="banner-wrapper">
+    <a class="banner animate-onscroll" href="https://www.azdararir.am/am/">
+        <i class="icons" style="margin-left:10px">
+            <img src="/img/bell_grey.png" />
+        </i>
+        <img src="/img/azdararir.gif" />
+    </a>
+</div>
+
+<div style="padding-bottom:7px" class="banner-wrapper">
+    <a class="banner animate-onscroll" target="_blank" href="https://e-request.am/hy/e-letter">
+        <i class="icons" style="margin-left: 10px">
+            <img src="/img/e-request.png" />
+        </i>
+        <h4>&#x548;&#x582;&#x572;&#x561;&#x580;&#x56F;&#x565;&#x56C; &#x570;&#x561;&#x580;&#x581;&#x578;&#x582;&#x574;</h4>
+        <p>&#x564;&#x56B;&#x574;&#x578;&#x582;&#x574; &#x56F;&#x561;&#x574; &#x562;&#x578;&#x572;&#x578;&#x584;</p>
+    </a>
+</div>
+
+<div class="banner-wrapper">
+    <a class="banner" href="/Elections/Calendar">
+        <i class="icons icon-calendar"></i>
+        <h4>&#x538;&#x576;&#x57F;&#x580;&#x578;&#x582;&#x569;&#x575;&#x578;&#x582;&#x576;&#x576;&#x565;&#x580;&#x56B;</h4>
+        <p>&#x56A;&#x561;&#x574;&#x561;&#x576;&#x561;&#x56F;&#x561;&#x581;&#x578;&#x582;&#x575;&#x581;</p>
+    </a>
+</div>
+
+
+
+<!-- DatePicker -->
+<div class="sidebar-box white " style="padding:0;">
+    <div id="caleandar">
+    </div>
+</div>
+<!-- /DatePicker -->
+
+<!--<div style="margin-top:10px; opacity: 1;" class="sidebar-box white featured-video">
+    <h3 style="text-transform:unset">&#x554;&#x57E;&#x565;&#x561;&#x580;&#x56F;&#x578;&#x582;&#x569;&#x575;&#x561;&#x576; &#x56F;&#x561;&#x580;&#x563;&#x568;</h3>
+    <iframe src="https://www.youtube.com/embed/4VQgyu28DzU" title="&#x554;&#x57E;&#x565;&#x561;&#x580;&#x56F;&#x578;&#x582;&#x569;&#x575;&#x561;&#x576; &#x56F;&#x561;&#x580;&#x563;&#x568;" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+</div>-->
+
+
+
+
+
+
+<!-- Facebook Banner -->
+
+<div class="sidebar-box white banner-wrapper" style="margin-top:10px; padding:0">
+    <h4 style="padding:10px; margin:0">&#x540;&#x565;&#x57F;&#x587;&#x565;&#x584; &#x574;&#x565;&#x566; facebook-&#x578;&#x582;&#x574;</h4>
+    <iframe src="https://www.facebook.com/plugins/page.php?href=https%3A%2F%2Fwww.facebook.com%2F%D5%80%D5%80-%D5%AF%D5%A5%D5%B6%D5%BF%D6%80%D5%B8%D5%B6%D5%A1%D5%AF%D5%A1%D5%B6-%D5%A8%D5%B6%D5%BF%D6%80%D5%A1%D5%AF%D5%A1%D5%B6-%D5%B0%D5%A1%D5%B6%D5%B1%D5%B6%D5%A1%D5%AA%D5%B8%D5%B2%D5%B8%D5%BECentral-Electoral-Commission-of-Armenia-176066689121093%2F&tabs=timeline&width=262&height=130&small_header=false&adapt_container_width=true&hide_cover=false&show_facepile=true&appId">
+    </iframe>
+</div>
+
+<!-- /Facebook Banner -->
+
+<!-- Image Banner -->
+<!-- /Image Banner -->
+<!-- Logo Download -->
+<!-- /Logo Download -->
+<!-- Modal 27001-->
+
+<script src="/lib/caleandar-master/js/caleandar.js"></script>
+<script>
+    var events = [];
+    $.getJSON('/Select/ElectionCalendarData', function (data) {
+        if ('hy' == 'hy') {
+            $.each(data, function (i, item) {
+                events.push({
+                    'Date': new Date(item.year, item.month, item.day),
+                    'Title': item.day + '/' + (item.month + 1) + '/' + item.year + ' - ' + item.title,
+                    'Link': '/Elections/Calendar/' + item.day + '-' + (item.month + 1) + '-' + item.year
+                });
+            });
+        }
+        else {
+            $.each(data, function (i, item) {
+                events.push({
+                    'Date': new Date(item.year, item.month, item.day),
+                    'Title': item.day + '/' + (item.month + 1) + '/' + item.year + ' - ' + item.titleEn,
+                    'Link': '/Elections/Calendar/' + item.day + '-' + (item.month + 1) + '-' + item.year
+                });
+            });
+        }
+
+        var settings = {
+            Language: 'hy'
+        };
+        var element = document.getElementById('caleandar');
+        caleandar(element, events, settings);
+    });
+
+</script>
+        </div>
+    </div>
+</div>
+
+
+
+
+    </section>
+
+
+    <!-- Footer -->
+    <footer id="footer">
+        <!-- Main Footer -->
+        <div id="main-footer" style="margin-top:20px">
+            <div class="row">
+                <div class="footer-logo"></div>
+                <h5>&#x540;&#x531;&#x545;&#x531;&#x54D;&#x54F;&#x531;&#x546;&#x53B; &#x540;&#x531;&#x546;&#x550;&#x531;&#x54A;&#x535;&#x54F;&#x548;&#x552;&#x539;&#x545;&#x531;&#x546; &#x53F;&#x535;&#x546;&#x54F;&#x550;&#x548;&#x546;&#x531;&#x53F;&#x531;&#x546; &#x538;&#x546;&#x54F;&#x550;&#x531;&#x53F;&#x531;&#x546; &#x540;&#x531;&#x546;&#x541;&#x546;&#x531;&#x53A;&#x548;&#x542;&#x548;&#x54E;</h5>
+            </div>
+        </div>
+        <!-- /Main Footer -->
+        <!-- Lower Footer -->
+        <div id="lower-footer">
+            <div class="container">
+                <div class="row">
+
+                    <div class="col-lg-4 col-md-4 col-sm-4" style="opacity: 1;">
+
+                        <p class="copyright">
+                            © 2026
+                            &#x532;&#x578;&#x56C;&#x578;&#x580; &#x56B;&#x580;&#x561;&#x57E;&#x578;&#x582;&#x576;&#x584;&#x576;&#x565;&#x580;&#x568; &#x57A;&#x561;&#x577;&#x57F;&#x57A;&#x561;&#x576;&#x57E;&#x561;&#x56E; &#x565;&#x576;:
+                        </p>
+
+                    </div>
+
+                    <div class="col-lg-8 col-md-8 col-sm-8" style="opacity: 1;">
+
+                        <div class="social-media">
+                            <ul class="social-icons">
+                                <li class="facebook"><a href="https://www.facebook.com/%D5%80%D5%80-%D5%AF%D5%A5%D5%B6%D5%BF%D6%80%D5%B8%D5%B6%D5%A1%D5%AF%D5%A1%D5%B6-%D5%A8%D5%B6%D5%BF%D6%80%D5%A1%D5%AF%D5%A1%D5%B6-%D5%B0%D5%A1%D5%B6%D5%B1%D5%B6%D5%A1%D5%AA%D5%B8%D5%B2%D5%B8%D5%BECentral-Electoral-Commission-of-Armenia-176066689121093" class="tooltip-ontop" title="" data-original-title="Facebook" target="_blank"><i class="icons icon-facebook"></i></a></li>
+                                <li class="youtube"><a href="https://www.youtube.com/channel/UClMrN5w6cC6_0DatitKZMmg" class="tooltip-ontop" title="" data-original-title="Youtube" target="_blank"><i class="icons icon-youtube-1"></i></a></li>
+                            </ul>
+                        </div>
+
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+        <!-- /Lower Footer -->
+
+    </footer>
+    <!-- /Footer -->
+    <!-- Back To Top -->
+    <a href="#" id="button-to-top"><i class="icons icon-up-dir"></i></a>
+    <!-- /Container -->
+    <!-- JavaScript -->
+    <!-- Bootstrap -->
+    <script type="text/javascript" src="lib/bootstrap/dist/js/bootstrap.min.js"></script>
+
+    <!-- Modernizr -->
+    <script type="text/javascript" src="js/modernizr.js"></script>
+
+    <!-- Sliders/Carousels -->
+    <script type="text/javascript" src="js/jquery.flexslider-min.js"></script>
+    <script type="text/javascript" src="js/owl.carousel.min.js"></script>
+
+    <!-- Revolution Slider  -->
+    <script type="text/javascript" src="js/revolution-slider/js/jquery.themepunch.plugins.min.js"></script>
+    <script type="text/javascript" src="js/revolution-slider/js/jquery.themepunch.revolution.min.js"></script>
+
+    <!-- Calendar -->
+
+    <!-- Raty -->
+
+    <!-- Chosen -->
+    <script type="text/javascript" src="js/chosen.jquery.min.js"></script>
+
+    <!-- jFlickrFeed -->
+
+    <!-- InstaFeed -->
+
+    <!-- MixItUp -->
+
+    <!-- CloudZoom -->
+
+    <!-- Main Script -->
+    <script type="text/javascript" src="js/script.js"></script>
+
+
+    <!--[if lt IE 9]>
+        <script type="text/javascript" src="~/js/jquery.placeholder.js"></script>
+        <script type="text/javascript" src="~/js/script_ie.js"></script>
+    <![endif]-->
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-26475614-2"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+
+        gtag('config', 'UA-26475614-2');
+    </script>
+
+    <script>
+        $(document).ready(function () {
+            var headerHeight = $("header").outerHeight();
+            var footerHeight = $("footer").outerHeight();
+            var mainSectonHeight = $(window).height() - headerHeight - footerHeight;
+            $("section#content").css("min-height", mainSectonHeight);
+        });
+
+        //======= For Header Baner
+        var divHeaderHeight = $("#main-header").height();
+        $(".header > div.header-gerb").height(divHeaderHeight * 0.8);
+        $(".header > div.header-logo").height(divHeaderHeight * 0.8);
+
+        if ($(window).width() <= 991) {
+            $(".header > div.header-gerb").height(60);
+        }
+        if ($(window).width() <= 991 && $(window).width() >= 768) {
+            $(".header > div.header-gerb").height(90);
+        }
+
+        //======== For Labels
+        $("input").each(function (index) {
+            var id = $(this).attr('id');
+            $(this).prev("label").attr("for", id);
+        });
+
+    </script>
+    
+    <script>
+        function Reset() {
+            $("#ShowCaptcha").val(true);
+            $(".search input").val("");
+            $("#Input_Region").val("");
+            $("#Input_Community").val("");
+            $("#Input_District").val("");
+            $("form").submit();
+        }
+
+        $("a.address").click(
+            function () {
+                $(this).parent().parent().next().toggle(300);
+            });
+
+        function initMap(positionX, positionY, comment, name) {
+
+            if (positionX != null && positionY != null) {
+                var map;
+                var loc;
+
+                loc = new google.maps.LatLng(positionX, positionY);
+                map = new google.maps.Map(document.getElementById("map"), { zoom: 18, center: loc });
+
+                addMarker(map, loc, name, 'active', comment);
+            }
+        }
+
+        function ShowOnMap(positionX, positionY, comment, name) {
+            if (positionX != null && positionY != null) {
+                $("#map").html("");
+                initMap(positionX, positionY, comment, name);
+                $("#map").show();
+            }
+        }
+
+        function addMarker(map, location, name, active, comment) {
+            var iconUrl;
+
+            const contentString = '<p>' + comment + '</p>';
+
+            const infowindow = new google.maps.InfoWindow({
+                content: contentString
+            });
+
+
+            if (name == null || name == "") {
+                iconUrl = "";
+            }
+            else {
+                iconUrl = "/img/pin.png";
+            }
+            var marker = new google.maps.Marker({
+                position: location,
+                map: map,
+                title: comment,
+                status: active,
+                icon: { url: iconUrl, scaledSize: new google.maps.Size(37, 25), labelOrigin: new google.maps.Point(19, 10) },
+                label: {
+                    text: name,
+                    color: "#750004",
+                    fontSize: "11px",
+                    fontWeight: "bold"
+                },
+            });
+            marker.addListener("click", () => {
+                infowindow.open(map, marker);
+            });
+        }
+
+        function RegionChange(param) {
+            var region = $("#" + param + "RegionCode").val();
+            if (param == "refresh") {
+                region = $("#Input_Region").val();
+            }
+            $("#Input_Region").val(region);
+
+            $(".RegionCode").val(region);
+            $(".RegionCode").trigger("chosen:updated");
+
+            var community = $("#Input_Community").val();
+
+            var url = "/Select/GetRegisterCommunitiesByRegion";
+
+            if (param == "refresh") {
+                CommunityChange(param)
+            }
+            else {
+                $.getJSON(url, { region: region, community: community }, function (data) {
+                    var item = "";
+                    $(".CommunityCode").empty();
+                    $.each(data, function (i, community) {
+                        item += '<option value="' + community.value + '" ' + community.selected + '>' + community.text + '</option>'
+                    });
+                    $(".CommunityCode").html(item);
+                    $(".CommunityCode").trigger("chosen:updated");
+                });
+                CommunityChange('reset')
+            }
+        }
+
+        function CommunityChange(param) {
+            var region = $("#Input_Region").val();
+            var community = $("#" + param + "CommunityCode").val();
+
+            if (param == "reset") {
+                community = "";
+            }
+            if (param == "refresh") {
+
+                community = $("#Input_Community").val();
+
+                var url = "/Select/GetRegisterCommunitiesByRegion";
+
+                $.getJSON(url, { region: region, community: community }, function (data) {
+                    var item = "";
+                    $(".CommunityCode").empty();
+                    $.each(data, function (i, community) {
+                        item += '<option value="' + community.value + '" ' + community.selected + '>' + community.text + '</option>'
+                    });
+                    $(".CommunityCode").html(item);
+                    $(".CommunityCode").trigger("chosen:updated");
+                });
+            }
+            else {
+                $(".CommunityCode").val(community);
+                $(".CommunityCode").trigger("chosen:updated");
+            }
+            $("#Input_Community").val(community);
+        }
+
+        $(document).ready(function () {
+            var region = $("#Input_Region").val();
+            var url = "/Select/GetRegisterRegions";
+
+            $.getJSON(url, { region: region }, function (data) {
+                var item = "";
+                $(".RegionCode").empty();
+                $.each(data, function (i, region) {
+                    item += '<option value="' + region.value + '" ' + region.selected + '>' + region.text + '</option>'
+                });
+                $(".RegionCode").html(item);
+                $(".RegionCode").trigger("chosen:updated");
+
+
+            }).fail(function (jqxhr, textStatus, error) {
+                var err = textStatus + ", " + error;
+                console.log("Request Failed: " + err);
+                console.log('Response Text: ' + jqxhr.responseText);
+                console.log('jqXHR:');
+                console.log(jqxhr);
+                console.log('textStatus: ' + textStatus);
+            });
+
+            RegionChange('refresh');
+        });
+    </script>
+
+    <script async defer
+            src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDAD-KdP3PfA4mxv81bWinFEa3uo7_m2-Q&callback=initMap&language=hy">
+    </script>
+
+    <script async defer 
+            src="https://www.google.com/recaptcha/api.js?hl=hy" >
+    </script>
+
+
+    <div id="accessibilityButton" class="constant"></div>
+    <nav id="accessibilityPanel" class="hy constant">
+	    <fieldset class="visual">
+		    <ul class="size constant">
+			    <h2 class="constant">
+				    <span class="hy">Տառաչափ</span>
+				    <span class="en">Font Size</span>
+			    </h2>
+			    <li class="default">
+				    <a href="" class="constant bc-white-lite">
+					    <span class="hy">Ա</span>
+					    <span class="en">A</span>
+				    </a>
+			    </li><!-- 
+			     --><li class="smaller">
+				    <a href="" class="constant bc-white-lite">
+					    <span class="hy">Ա-</span>
+					    <span class="en">A-</span>
+				    </a>
+			    </li><!-- 
+			     --><li class="larger">
+				    <a href="" class="constant bc-white-lite">
+					    <span class="hy">Ա+</span>
+					    <span class="en">A+</span>
+				    </a>
+			    </li>
+		    </ul>
+		    <ul id="color" class="color constant">
+			    <h2 class="constant">
+				    <span class="hy">Գույների համադրություն</span>
+				    <span class="en">Color Scheme</span>
+			    </h2>
+			    <li class="default selected">
+				    <a href="" class="constant bc-white-lite">
+					    <span class="hy">Գ</span>
+					    <span class="en">T</span>
+				    </a>
+			    </li><!-- 
+			     --><li class="black">
+				    <a href="" class="constant c-black bc-white-lite bgc-black">
+					    <span class="hy">Գ</span>
+					    <span class="en">T</span>
+				    </a>
+			    </li><!-- 
+			     --><li class="white">
+				    <a href="" class="constant c-white bc-white-lite bgc-white">
+					    <span class="hy">Գ</span>
+					    <span class="en">T</span>
+				    </a>
+			    </li>
+		    </ul>
+		    <ul class="image constant">
+			    <h2 class="constant">
+				    <span class="hy">Նկարները</span>
+				    <span class="en">Images</span>
+			    </h2>
+			    <li class="default selected">
+				    <a href="" class="constant bc-white-lite"></a>
+			    </li><!-- 
+			     --><li class="remove">
+				    <a href="" class="constant bc-white-lite"></a>
+			    </li><!-- 
+			     --><li class="grayscale">
+				    <a href="" class="constant bc-white-lite"></a>
+			    </li>
+		    </ul>
+	    </fieldset>
+	    <fieldset>
+		    <ul class="settings constant">
+			    <h2 class="constant">
+				    <span class="hy">Կարգավորումներ</span>
+				    <span class="en">Settings</span>
+			    </h2>
+			    <li class="reset bc-white">
+				    <a href="" class="constant bc-white-lite">
+					    <span class="hy">Չեղարկել</span>
+					    <span class="en">Reset</span>
+				    </a>
+			    </li>
+		    </ul>
+	    </fieldset>
+    </nav>
+
+</body>
+
+</html>
+

