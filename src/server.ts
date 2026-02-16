@@ -56,10 +56,12 @@ interface CombinedResponse {
 }
 
 // Constants
-const BASE_URL = 'https://prelive.elections.am/Register';
+const BASE_URL = 'https://elections.am/Register';
+const SECONDARY_URL = 'https://prelive.elections.am/Register';
+const PARENT_URL = 'https://elections.am';
 const REQUEST_TIMEOUT = 60000;
 const PAGE_DELAY = 500; // Задержка между запросами страниц
-const MAX_RETRIES = 3; // Максимальное количество повторных попыток
+const MAX_RETRIES = 5; // Максимальное количество повторных попыток
 
 // Create axios instance with cookie jar
 function createAxiosInstance(cookieJar?: InstanceType<typeof CookieJar>): AxiosInstance {
@@ -94,63 +96,78 @@ function createAxiosInstance(cookieJar?: InstanceType<typeof CookieJar>): AxiosI
 
 // Fetch CSRF token with retries
 async function fetchCsrfToken(retries = MAX_RETRIES): Promise<{ token: string | null; cookieJar: CookieJar | null }> {
-  for (let attempt = 1; attempt <= retries; attempt++) {
-    try {
-      const cookieJar = new CookieJar();
-      const client = createAxiosInstance(cookieJar);
+  const cookieJar = new CookieJar();
+  const client = createAxiosInstance(cookieJar);
 
-      console.log(`📡 Попытка получения CSRF токена #${attempt}...`);
+  // First, try to visit the parent domain to establish a session
+  try {
+    console.log('🔗 Установка сессии через родительский домен...');
+    await client.get(PARENT_URL, { timeout: 15000 });
+    console.log('✓ Сессия установлена');
+  } catch (err) {
+    console.warn('⚠️ Не удалось установить сессию через родительский домен, продолжаем...');
+  }
 
-      // Try visiting the base URL first to establish session
-      const response = await client.get(BASE_URL);
+  // Try both URLs in sequence
+  const urlsToTry = [BASE_URL, SECONDARY_URL];
 
-      console.log(`📡 CSRF Token fetch - Статус: ${response.status}`);
+  for (const targetUrl of urlsToTry) {
+    console.log(`\n📡 Попытка получения CSRF токена с ${targetUrl}...`);
+    
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        console.log(`   Попытка #${attempt}/${retries}`);
 
-      // Handle both 200 and 403 responses
-      if (response.status === 200 || response.status === 403) {
+        const response = await client.get(targetUrl, { timeout: 20000 });
+        
+        console.log(`   📡 Статус: ${response.status}`);
+
+        // Try to extract token from any response (200, 403, etc)
         const $ = cheerio.load(response.data);
         const token = $('input[name="__RequestVerificationToken"]').val() as string;
 
         if (token && token.length > 0) {
           console.log('✓ Свежий токен получен успешно');
           console.log(`✓ Токен: ${token.substring(0, 20)}...`);
+          console.log(`✓ URL: ${targetUrl}`);
           return { token, cookieJar };
-        } else if (response.status === 403) {
-          console.warn('⚠️ Получен статус 403. Попробуем другой подход...');
-          
-          // Try alternative approach: set referer and retry
-          if (attempt === 1) {
-            client.defaults.headers.common['Referer'] = 'https://elections.am/';
-            console.log('🔄 Переустанавливаем Referer и повторяем запрос...');
-            const retryResponse = await client.get(BASE_URL);
-            if (retryResponse.status === 200) {
-              const $2 = cheerio.load(retryResponse.data);
-              const token2 = $2('input[name="__RequestVerificationToken"]').val() as string;
-              if (token2 && token2.length > 0) {
-                console.log('✓ Токен получен со второй попытки');
-                return { token: token2, cookieJar };
-              }
-            }
+        }
+
+        // If we got 200 but no token, the page structure might be different
+        if (response.status === 200) {
+          console.log('⚠️ Статус 200 но токен не найден в ожидаемом месте');
+          // Try alternative selectors
+          const token2 = response.data.match(/__RequestVerificationToken['":\s]*['"]*([a-zA-Z0-9\-_/+=]+)/)?.[1];
+          if (token2 && token2.length > 20) {
+            console.log('✓ Токен найден через regex');
+            return { token: token2, cookieJar };
           }
-        } else {
-          console.warn('⚠️ Токен не найден на странице');
+        }
+
+        if (attempt < retries) {
+          const delay = (attempt * 2) * 1000; // 2s, 4s, 6s
+          console.log(`⏳ Ожидание ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      } catch (error: any) {
+        console.error(`   ❌ Ошибка:`, error.message?.substring(0, 100));
+        
+        if (attempt < retries) {
+          const delay = (attempt * 2) * 1000;
+          console.log(`⏳ Ожидание ${delay}ms перед повторной попыткой...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
         }
       }
-    } catch (error: any) {
-      console.error(`⚠️ Ошибка при получении токена (попытка ${attempt}/${retries}):`);
-      console.error('   Message:', error.message);
-      console.error('   Code:', error.code);
-      console.error('   Status:', error.response?.status);
-      
-      if (attempt < retries) {
-        const delay = attempt * 1500; // Увеличиваем задержку
-        console.log(`⏳ Ожидание ${delay}ms перед повторной попыткой...`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
     }
+
+    console.log(`\n⚠️ Не удалось получить токен с ${targetUrl}`);
   }
 
-  console.error('❌ Не удалось получить CSRF токен после всех попыток. Сервис elections.am может быть недоступен или блокирует запросы.');
+  console.error('\n❌ Не удалось получить CSRF токен со всех sources');
+  console.error('⚠️ Возможные причины:');
+  console.error('   - Сервис elections.am блокирует запросы с IP адреса сервера');
+  console.error('   - WAF/DDoS защита блокирует автоматизированные запросы');
+  console.error('   - Требуется прохождение CAPTCHA');
   return { token: null, cookieJar: null };
 }
 
