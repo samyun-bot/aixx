@@ -101,7 +101,7 @@ async function fetchCsrfToken(retries = MAX_RETRIES): Promise<{ token: string | 
       const response = await gotScraping({
         url: BASE_URL,
         method: 'GET',
-        timeout: 30000,
+        timeout: 15000,
         headerGeneratorOptions: {
           browsers: [
             {
@@ -116,12 +116,13 @@ async function fetchCsrfToken(retries = MAX_RETRIES): Promise<{ token: string | 
         },
         proxyUrl: process.env.PROXY_URL,
         retry: {
-          limit: 2
+          limit: 1
         }
       });
 
       console.log(`📡 CSRF Token fetch - Статус: ${response.statusCode}`);
       console.log(`📡 Response size: ${response.body.length} bytes`);
+      console.log(`📡 Content-Type: ${response.headers['content-type']}`);
 
       if (response.statusCode === 200) {
         const $ = cheerio.load(response.body);
@@ -138,9 +139,12 @@ async function fetchCsrfToken(retries = MAX_RETRIES): Promise<{ token: string | 
           return { token, cookies: cookieString };
         } else {
           console.warn('⚠️ Токен не найден на странице');
+          // Log first 500 chars of body for debugging
+          console.warn(`📋 HTML preview: ${response.body.substring(0, 500)}`);
         }
       } else {
         console.warn(`⚠️ Неожиданный статус: ${response.statusCode}`);
+        console.warn(`📋 Response: ${response.body.substring(0, 200)}`);
       }
     } catch (error: any) {
       console.error(`⚠️ Ошибка при получении токена (попытка ${attempt}/${retries}):`, error.message);
@@ -154,7 +158,7 @@ async function fetchCsrfToken(retries = MAX_RETRIES): Promise<{ token: string | 
   }
 
   console.error('❌ Не удалось получить CSRF токен после всех попыток');
-  return { token: null, cookies: null };
+  throw new Error('CSRF token fetch failed: Remote service unavailable or blocked');
 }
 
 // Get search results
@@ -282,7 +286,7 @@ async function getSearchResults(params: {
         url: BASE_URL,
         method: 'POST',
         body: formBody,
-        timeout: 30000,
+        timeout: 20000,
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
           'Cookie': cookieString || '',
@@ -309,7 +313,7 @@ async function getSearchResults(params: {
         },
         proxyUrl: process.env.PROXY_URL,
         retry: {
-          limit: 2
+          limit: 1
         }
       });
 
@@ -475,7 +479,7 @@ app.post('/api/search', async (req: Request, res: Response) => {
 
     // Return user-friendly error
     const errorMessage = error.message || 'An error occurred during search';
-    
+
     return res.status(500).json({
       success: false,
       error: 'Service unavailable. Please try again later. / Ծառայությունն անհասանելի է։',
