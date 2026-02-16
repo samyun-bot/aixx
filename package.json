@@ -1,4 +1,5 @@
 {
+  "type": "module",
   "name": "election-registry",
   "version": "1.0.0",
   "description": "Armenian Election Registry Search - TypeScript Version",

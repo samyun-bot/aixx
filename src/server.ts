@@ -1,7 +1,11 @@
 import express, { Request, Response, Express } from 'express';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { gotScraping } from 'got-scraping';
 import * as cheerio from 'cheerio';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app: Express = express();
 const PORT = parseInt(process.env.PORT || '5000', 10);
