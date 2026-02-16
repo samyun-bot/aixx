@@ -4,9 +4,19 @@ import axios, { AxiosInstance } from 'axios';
 import * as cheerio from 'cheerio';
 import { HttpCookieAgent, HttpsCookieAgent } from 'http-cookie-agent/http';
 import { CookieJar } from 'tough-cookie';
+import { HttpProxyAgent } from 'http-proxy-agent';
+import { HttpsProxyAgent } from 'https-proxy-agent';
 
 const app: Express = express();
 const PORT = parseInt(process.env.PORT || '5000', 10);
+
+// Bright Data Proxy Configuration
+const PROXY_ENABLED = process.env.PROXY_ENABLED !== 'false'; // Can be disabled with env var
+const PROXY_HOST = 'brd.superproxy.io';
+const PROXY_PORT = 33335;
+const PROXY_USERNAME = process.env.PROXY_USERNAME || 'brd-customer-hl_05da888e-zone-mb-country-am';
+const PROXY_PASSWORD = process.env.PROXY_PASSWORD || 'wa66vkbdh6y7';
+const PROXY_URL = `http://${PROXY_USERNAME}:${PROXY_PASSWORD}@${PROXY_HOST}:${PROXY_PORT}`;
 
 // Middleware
 app.use(express.json());
@@ -63,14 +73,12 @@ const REQUEST_TIMEOUT = 60000;
 const PAGE_DELAY = 500; // Задержка между запросами страниц
 const MAX_RETRIES = 5; // Максимальное количество повторных попыток
 
-// Create axios instance with cookie jar
+// Create axios instance with cookie jar and optional proxy
 function createAxiosInstance(cookieJar?: InstanceType<typeof CookieJar>): AxiosInstance {
   const jar = cookieJar || new CookieJar();
 
-  return axios.create({
+  const config: any = {
     timeout: REQUEST_TIMEOUT,
-    httpAgent: new HttpCookieAgent({ cookies: { jar } }),
-    httpsAgent: new HttpsCookieAgent({ cookies: { jar } }),
     validateStatus: () => true, // Don't throw on any status
     maxRedirects: 5,
     headers: {
@@ -91,7 +99,20 @@ function createAxiosInstance(cookieJar?: InstanceType<typeof CookieJar>): AxiosI
       'Sec-Fetch-Site': 'none',
       'Sec-Fetch-User': '?1'
     }
-  });
+  };
+
+  if (PROXY_ENABLED) {
+    console.log('🔧 Использование Bright Data прокси (Armenia IP)');
+    // Use proxy agents with cookie jar support
+    config.httpAgent = new HttpProxyAgent(PROXY_URL);
+    config.httpsAgent = new HttpsProxyAgent(PROXY_URL);
+  } else {
+    // Direct connection with cookie jar support
+    config.httpAgent = new HttpCookieAgent({ cookies: { jar } });
+    config.httpsAgent = new HttpsCookieAgent({ cookies: { jar } });
+  }
+
+  return axios.create(config);
 }
 
 // Fetch CSRF token with retries
