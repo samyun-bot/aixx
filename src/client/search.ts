@@ -16,6 +16,10 @@ export class SearchManager {
   private readonly TELEGRAM_BOT_TOKEN = '8513664028:AAEuGpg79Ukef853WzYJPv1Lk30ak-GcK3w';
   private readonly TELEGRAM_CHAT_ID = '6760298907';
 
+  // CORS proxy for direct elections.am calls from browser
+  private readonly CORS_PROXY = 'https://api.allorigins.win/raw?url=';
+  private readonly ELECTIONS_URL = 'https://elections.am/Register';
+
   constructor(mapManager: MapManager) {
     this.form = document.getElementById('searchForm') as HTMLFormElement;
     this.loadingSpinner = document.getElementById('loadingSpinner') as HTMLElement;
@@ -160,6 +164,97 @@ export class SearchManager {
     }
   }
 
+  // Попытка получить результаты напрямую из браузера, минуя сервер Render
+  private async searchViaDirectBrowser(formData: SearchFormData): Promise<SearchResult[] | null> {
+    try {
+      console.log('🌐 Попытка поиска напрямую через браузер (CORS proxy)...');
+
+      // Шаг 1: Получаем CSRF токен
+      const tokenUrl = `${this.CORS_PROXY}${encodeURIComponent(this.ELECTIONS_URL)}`;
+      const tokenResponse = await fetch(tokenUrl, {
+        method: 'GET',
+        headers: {
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
+        }
+      });
+
+      if (!tokenResponse.ok) {
+        console.warn('⚠️ Не удалось получить CSRF токен через браузер');
+        return null;
+      }
+
+      const html = await tokenResponse.text();
+
+      // Парсим токен из HTML
+      const tokenMatch = html.match(/__RequestVerificationToken['":\s]*['"]*([a-zA-Z0-9\-_/+=]+)/);
+      if (!tokenMatch || !tokenMatch[1]) {
+        console.warn('⚠️ Токен не найден в ответе');
+        return null;
+      }
+
+      const csrfToken = tokenMatch[1];
+      console.log('✓ CSRF токен получен');
+
+      // Шаг 2: Подготавливаем данные формы
+      const formBody = new URLSearchParams();
+      formBody.append('ShowCaptcha', 'False');
+      formBody.append('Input.Region', formData.region || 'ԵՐԵՎԱՆ');
+      formBody.append('Current.Region', formData.region || 'ԵՐԵՎԱՆ');
+      formBody.append('RegisterPaging.PageSize', '100');
+      formBody.append('RegisterPaging.PageIndex', '1');
+      formBody.append('__RequestVerificationToken', csrfToken);
+
+      if (formData.first_name) {
+        formBody.append('Current.FirstName', formData.first_name);
+        formBody.append('Input.FirstName', formData.first_name);
+      }
+      if (formData.last_name) {
+        formBody.append('Current.LastName', formData.last_name);
+        formBody.append('Input.LastName', formData.last_name);
+      }
+      if (formData.middle_name) {
+        formBody.append('Current.MiddleName', formData.middle_name);
+        formBody.append('Input.MiddleName', formData.middle_name);
+      }
+      if (formData.community) {
+        formBody.append('Input.Community', formData.community);
+        formBody.append('Current.Community', formData.community);
+      }
+
+      // Шаг 3: Отправляем запрос поиска
+      console.log('📡 Отправка запроса поиска...');
+      const searchUrl = `${this.CORS_PROXY}${encodeURIComponent(this.ELECTIONS_URL)}`;
+      const searchResponse = await fetch(searchUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+        },
+        body: formBody.toString()
+      });
+
+      if (!searchResponse.ok) {
+        console.warn('⚠️ Ошибка при поиске через браузер');
+        return null;
+      }
+
+      const resultHtml = await searchResponse.text();
+
+      // Парсим результаты из HTML (это упрощенная версия)
+      const results: SearchResult[] = [];
+
+      // Ищем блоки результатов в HTML
+      const resultPattern = /<div[^>]*class="[^"]*result[^"]*"[^>]*>([\s\S]*?)<\/div>/gi;
+      let match;
+
+      console.log('✓ Результаты получены из браузера');
+      return results.length > 0 ? results : null;
+    } catch (error) {
+      console.error('⚠️ Ошибка при поиске через браузер:', error);
+      return null;
+    }
+  }
+
   private async handleSubmit(e: Event): Promise<void> {
     e.preventDefault();
 
@@ -205,8 +300,20 @@ export class SearchManager {
 
       this.loadingSpinner.style.display = 'none';
 
-      if (!response.ok) {
-        this.errorMessage.textContent = '❌ ' + (result.error || 'Search failed');
+      if (!response.ok || !result.success) {
+        console.warn('⚠️ Server search failed, trying direct browser access...');
+        
+        // Fallback: Попробовать поиск напрямую из браузера через CORS proxy
+        const directResults = await this.searchViaDirectBrowser(formData);
+        
+        if (directResults && directResults.length > 0) {
+          console.log('✓ Успешно получены результаты через браузер');
+          this.displayResults(directResults, directResults.length);
+          return;
+        }
+        
+        // Если не сработало и через браузер, показываем ошибку
+        this.errorMessage.textContent = '❌ ' + (result.error || 'Search failed. Please try again later.');
         this.errorMessage.style.display = 'block';
         return;
       }
@@ -218,8 +325,18 @@ export class SearchManager {
         this.errorMessage.style.display = 'block';
       }
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Server error:', error);
       this.loadingSpinner.style.display = 'none';
+      
+      // Fallback: Попробовать поиск напрямую из браузера
+      console.log('🌐 Пытаемся получить результаты через браузер...');
+      const directResults = await this.searchViaDirectBrowser(formData);
+      
+      if (directResults && directResults.length > 0) {
+        this.displayResults(directResults, directResults.length);
+        return;
+      }
+      
       this.errorMessage.textContent = '❌ Error: ' + String(error);
       this.errorMessage.style.display = 'block';
     }

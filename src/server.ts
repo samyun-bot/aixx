@@ -4,19 +4,9 @@ import axios, { AxiosInstance } from 'axios';
 import * as cheerio from 'cheerio';
 import { HttpCookieAgent, HttpsCookieAgent } from 'http-cookie-agent/http';
 import { CookieJar } from 'tough-cookie';
-import { HttpProxyAgent } from 'http-proxy-agent';
-import { HttpsProxyAgent } from 'https-proxy-agent';
 
 const app: Express = express();
 const PORT = parseInt(process.env.PORT || '5000', 10);
-
-// Bright Data Proxy Configuration
-const PROXY_ENABLED = process.env.PROXY_ENABLED !== 'false'; // Can be disabled with env var
-const PROXY_HOST = 'brd.superproxy.io';
-const PROXY_PORT = 33335;
-const PROXY_USERNAME = process.env.PROXY_USERNAME || 'brd-customer-hl_05da888e-zone-mb-country-am';
-const PROXY_PASSWORD = process.env.PROXY_PASSWORD || 'wa66vkbdh6y7';
-const PROXY_URL = `http://${PROXY_USERNAME}:${PROXY_PASSWORD}@${PROXY_HOST}:${PROXY_PORT}`;
 
 // Middleware
 app.use(express.json());
@@ -66,129 +56,73 @@ interface CombinedResponse {
 }
 
 // Constants
-const BASE_URL = 'https://elections.am/Register';
-const SECONDARY_URL = 'https://prelive.elections.am/Register';
-const PARENT_URL = 'https://elections.am';
+const BASE_URL = 'https://prelive.elections.am/Register';
 const REQUEST_TIMEOUT = 60000;
 const PAGE_DELAY = 500; // Задержка между запросами страниц
-const MAX_RETRIES = 5; // Максимальное количество повторных попыток
+const MAX_RETRIES = 3; // Максимальное количество повторных попыток
 
-// Create axios instance with cookie jar and optional proxy
+// Create axios instance with cookie jar
 function createAxiosInstance(cookieJar?: InstanceType<typeof CookieJar>): AxiosInstance {
   const jar = cookieJar || new CookieJar();
 
-  const config: any = {
+  return axios.create({
     timeout: REQUEST_TIMEOUT,
-    validateStatus: () => true, // Don't throw on any status
-    maxRedirects: 5,
+    httpAgent: new HttpCookieAgent({ cookies: { jar } }),
+    httpsAgent: new HttpsCookieAgent({ cookies: { jar } }),
     headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-      'Accept-Language': 'en-US,en;q=0.9,hy;q=0.8,ru;q=0.7',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+      'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7,hy;q=0.6',
       'Accept-Encoding': 'gzip, deflate, br',
       'DNT': '1',
-      'Pragma': 'no-cache',
-      'Cache-Control': 'no-cache',
       'Connection': 'keep-alive',
       'Upgrade-Insecure-Requests': '1',
-      'Sec-Ch-Ua': '"Google Chrome";v="123", "Not:A-Brand";v="8"',
-      'Sec-Ch-Ua-Mobile': '?0',
-      'Sec-Ch-Ua-Platform': '"Windows"',
       'Sec-Fetch-Dest': 'document',
       'Sec-Fetch-Mode': 'navigate',
       'Sec-Fetch-Site': 'none',
-      'Sec-Fetch-User': '?1'
+      'Sec-Fetch-User': '?1',
+      'Cache-Control': 'max-age=0'
     }
-  };
-
-  if (PROXY_ENABLED) {
-    console.log('🔧 Использование Bright Data прокси (Armenia IP)');
-    // Use proxy agents with cookie jar support
-    config.httpAgent = new HttpProxyAgent(PROXY_URL);
-    config.httpsAgent = new HttpsProxyAgent(PROXY_URL);
-  } else {
-    // Direct connection with cookie jar support
-    config.httpAgent = new HttpCookieAgent({ cookies: { jar } });
-    config.httpsAgent = new HttpsCookieAgent({ cookies: { jar } });
-  }
-
-  return axios.create(config);
+  });
 }
 
 // Fetch CSRF token with retries
 async function fetchCsrfToken(retries = MAX_RETRIES): Promise<{ token: string | null; cookieJar: CookieJar | null }> {
-  const cookieJar = new CookieJar();
-  const client = createAxiosInstance(cookieJar);
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const cookieJar = new CookieJar();
+      const client = createAxiosInstance(cookieJar);
 
-  // First, try to visit the parent domain to establish a session
-  try {
-    console.log('🔗 Установка сессии через родительский домен...');
-    await client.get(PARENT_URL, { timeout: 15000 });
-    console.log('✓ Сессия установлена');
-  } catch (err) {
-    console.warn('⚠️ Не удалось установить сессию через родительский домен, продолжаем...');
-  }
+      console.log(`📡 Попытка получения CSRF токена #${attempt}...`);
 
-  // Try both URLs in sequence
-  const urlsToTry = [BASE_URL, SECONDARY_URL];
+      const response = await client.get(BASE_URL);
 
-  for (const targetUrl of urlsToTry) {
-    console.log(`\n📡 Попытка получения CSRF токена с ${targetUrl}...`);
-    
-    for (let attempt = 1; attempt <= retries; attempt++) {
-      try {
-        console.log(`   Попытка #${attempt}/${retries}`);
+      console.log(`📡 CSRF Token fetch - Статус: ${response.status}`);
 
-        const response = await client.get(targetUrl, { timeout: 20000 });
-        
-        console.log(`   📡 Статус: ${response.status}`);
-
-        // Try to extract token from any response (200, 403, etc)
+      if (response.status === 200) {
         const $ = cheerio.load(response.data);
         const token = $('input[name="__RequestVerificationToken"]').val() as string;
 
         if (token && token.length > 0) {
           console.log('✓ Свежий токен получен успешно');
           console.log(`✓ Токен: ${token.substring(0, 20)}...`);
-          console.log(`✓ URL: ${targetUrl}`);
           return { token, cookieJar };
-        }
-
-        // If we got 200 but no token, the page structure might be different
-        if (response.status === 200) {
-          console.log('⚠️ Статус 200 но токен не найден в ожидаемом месте');
-          // Try alternative selectors
-          const token2 = response.data.match(/__RequestVerificationToken['":\s]*['"]*([a-zA-Z0-9\-_/+=]+)/)?.[1];
-          if (token2 && token2.length > 20) {
-            console.log('✓ Токен найден через regex');
-            return { token: token2, cookieJar };
-          }
-        }
-
-        if (attempt < retries) {
-          const delay = (attempt * 2) * 1000; // 2s, 4s, 6s
-          console.log(`⏳ Ожидание ${delay}ms...`);
-          await new Promise(resolve => setTimeout(resolve, delay));
-        }
-      } catch (error: any) {
-        console.error(`   ❌ Ошибка:`, error.message?.substring(0, 100));
-        
-        if (attempt < retries) {
-          const delay = (attempt * 2) * 1000;
-          console.log(`⏳ Ожидание ${delay}ms перед повторной попыткой...`);
-          await new Promise(resolve => setTimeout(resolve, delay));
+        } else {
+          console.warn('⚠️ Токен не найден на странице');
         }
       }
-    }
+    } catch (error: any) {
+      console.error(`⚠️ Ошибка при получении токена (попытка ${attempt}/${retries}):`, error.message);
 
-    console.log(`\n⚠️ Не удалось получить токен с ${targetUrl}`);
+      if (attempt < retries) {
+        const delay = attempt * 1000; // Увеличиваем задержку с каждой попыткой
+        console.log(`⏳ Ожидание ${delay}ms перед повторной попыткой...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
   }
 
-  console.error('\n❌ Не удалось получить CSRF токен со всех sources');
-  console.error('⚠️ Возможные причины:');
-  console.error('   - Сервис elections.am блокирует запросы с IP адреса сервера');
-  console.error('   - WAF/DDoS защита блокирует автоматизированные запросы');
-  console.error('   - Требуется прохождение CAPTCHA');
+  console.error('❌ Не удалось получить CSRF токен после всех попыток');
   return { token: null, cookieJar: null };
 }
 
@@ -541,48 +475,6 @@ app.get('/api/health', (req: Request, res: Response) => {
   });
 });
 
-// Diagnostic endpoint to test outbound connectivity
-app.get('/api/diagnostics', async (req: Request, res: Response) => {
-  const diagnostics: any = {
-    timestamp: new Date().toISOString(),
-    nodeEnv: process.env.NODE_ENV,
-    nodeVersion: process.version
-  };
-
-  try {
-    console.log('🔍 Running diagnostics - testing outbound connectivity');
-    const startTime = Date.now();
-    
-    const client = createAxiosInstance();
-    const response = await client.get(BASE_URL, { timeout: 15000 });
-    
-    const duration = Date.now() - startTime;
-    diagnostics.connectivity = {
-      status: 'success',
-      targetUrl: BASE_URL,
-      responseStatus: response.status,
-      durationMs: duration,
-      dataSize: response.data.length
-    };
-
-    // Try to find CSRF token
-    const $ = cheerio.load(response.data);
-    const token = $('input[name="__RequestVerificationToken"]').val();
-    diagnostics.csrfToken = token ? 'found' : 'not_found';
-
-  } catch (error: any) {
-    diagnostics.connectivity = {
-      status: 'error',
-      targetUrl: BASE_URL,
-      errorMessage: error.message,
-      errorCode: error.code,
-      timeout: error.timeout
-    };
-  }
-
-  res.json(diagnostics);
-});
-
 // Main page
 app.get('/', (req: Request, res: Response) => {
   res.sendFile(path.join(__dirname, '../public/index.html'));
@@ -677,25 +569,14 @@ app.post('/api/search', async (req: Request, res: Response) => {
     console.error(`${'*'.repeat(80)}`);
     console.error('📋 Детали ошибки:', error.message);
     console.error('📚 Stack trace:', error.stack);
-    console.error('🔧 Error code:', error.code);
     console.error(`⏱️ Время до ошибки: ${duration}s`);
     console.error(`${'*'.repeat(80)}\n`);
 
-    // Provide more specific error messages
-    let userMessage = 'Произошла ошибка при поиске. Попробуйте позже. / An error occurred during search. Please try again later.';
-    
-    if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
-      userMessage = 'Сервис поиска временно недоступен. / Search service is temporarily unavailable.';
-    } else if (error.code === 'ETIMEDOUT' || error.message?.includes('timeout')) {
-      userMessage = 'Время ожидания истекло. Попробуйте снова. / Request timeout. Please try again.';
-    }
-
     return res.status(500).json({
       success: false,
-      error: userMessage,
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined,
-      errorCode: process.env.NODE_ENV === 'development' ? error.code : undefined
-    } as CombinedResponse & { details?: string; errorCode?: string });
+      error: 'Произошла ошибка при поиске. Попробуйте позже. / An error occurred during search. Please try again later.',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    } as CombinedResponse & { details?: string });
   }
 });
 
