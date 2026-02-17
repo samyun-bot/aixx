@@ -66,6 +66,7 @@ const BASE_URL = 'https://prelive.elections.am/Register';
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 2000;
 const TOKEN_CACHE_DURATION = 5 * 60 * 1000; // Cache token for 5 minutes
+const USE_PROXY = process.env.USE_PROXY?.toLowerCase() === 'true';
 
 // Token cache
 let cachedToken: { token: string; cookies: string; timestamp: number } | null = null;
@@ -121,16 +122,28 @@ async function fetchCsrfToken(retries = MAX_RETRIES): Promise<{ token: string | 
   tokenFetchInProgress = true;
 
   // Check if proxy is configured
-  if (!process.env.PROXY_URL) {
-    console.warn('⚠️⚠️⚠️ PROXY_URL не настроен! Сайт может заблокировать запросы с datacenter IP.');
+  if (USE_PROXY && !process.env.PROXY_URL) {
+    console.warn('⚠️⚠️⚠️ USE_PROXY=true но PROXY_URL не настроен! Сайт может заблокировать запросы с datacenter IP.');
     console.warn('📝 Добавьте PROXY_URL в Environment Variables на Render');
     console.warn('💡 Подробности: см. FIX_403_RENDER.md');
+  }
+
+  // Determine if we need to use proxy for this token fetch
+  // If USE_PROXY=false but no cache exists, use proxy temporarily to get token
+  const shouldUseProxyForTokenFetch = USE_PROXY || !cachedToken;
+
+  if (USE_PROXY) {
+    console.log('🔄 Режим: PROXY ВКЛЮЧЕН');
+  } else if (!cachedToken) {
+    console.log('🔄 Режим: CACHE ПУСТ - автоматически включу proxy для получения свежего токена');
+  } else {
+    console.log('🔄 Режим: PROXY ОТКЛЮЧЕН (используется кэшированный токен)');
   }
 
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       console.log(`📡 Попытка получения CSRF токена #${attempt}...`);
-      if (process.env.PROXY_URL) {
+      if (shouldUseProxyForTokenFetch && process.env.PROXY_URL) {
         console.log(`🌐 Используется proxy: ${process.env.PROXY_URL.split('@')[1] || 'configured'}`);
       }
 
@@ -168,7 +181,7 @@ async function fetchCsrfToken(retries = MAX_RETRIES): Promise<{ token: string | 
           locales: ['ru-RU', 'en-US', 'hy-AM'],
           operatingSystems: ['windows']
         },
-        proxyUrl: process.env.PROXY_URL,
+        proxyUrl: shouldUseProxyForTokenFetch ? process.env.PROXY_URL : undefined,
         retry: {
           limit: 2,
           methods: ['GET']
@@ -377,7 +390,7 @@ async function getSearchResults(params: {
           locales: ['ru-RU', 'en-US'],
           operatingSystems: ['windows']
         },
-        proxyUrl: process.env.PROXY_URL,
+        proxyUrl: USE_PROXY ? process.env.PROXY_URL : undefined,
         retry: {
           limit: 1
         }
@@ -390,6 +403,8 @@ async function getSearchResults(params: {
         if (response.statusCode === 402) {
           console.log(`⚠️ 402 Payment Required - это может означать блокировку или лимит`);
           console.log(`📋 Response preview: ${response.body.substring(0, 300)}`);
+        } else if (response.statusCode === 403 && !USE_PROXY) {
+          console.log(`⚠️ 403 Forbidden - IP заблокирован. Включите proxy: USE_PROXY=true`);
         }
         break;
       }
