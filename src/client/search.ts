@@ -194,14 +194,24 @@ export class SearchManager {
     try {
       // ============================================
       // ЗАПРОС К СЕРВЕРУ - server.ts делает всю работу!
-      // Никаких CORS proxy, никаких прямых запросов
+      // Передаем браузер headers чтобы сервер использовал IP клиента
       // ============================================
       console.log('📡 Отправка запроса к /api/search...');
+
+      const requestBody = {
+        ...formData,
+        // Отправляем браузер информацию
+        _browserUserAgent: navigator.userAgent,
+        _browserLanguage: navigator.language,
+        _browserLanguages: navigator.languages ? Array.from(navigator.languages) : [],
+        _browserPlatform: navigator.platform,
+        _browserVendor: navigator.vendor
+      };
 
       const response = await fetch('/api/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(requestBody)
       });
 
       const result: ApiResponse = await response.json();

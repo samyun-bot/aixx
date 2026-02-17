@@ -44,6 +44,9 @@ interface SearchParams {
   district?: string;
   region?: string;
   community?: string;
+  // Browser info from client
+  _browserUserAgent?: string;
+  _browserLanguage?: string;
 }
 
 interface SearchResult {
@@ -280,6 +283,7 @@ async function getSearchResults(params: {
   building?: string;
   apartment?: string;
   district?: string;
+  browserUserAgent?: string;
 }): Promise<SearchResult[]> {
   const {
     firstName,
@@ -291,7 +295,8 @@ async function getSearchResults(params: {
     street = '',
     building = '',
     apartment = '',
-    district = ''
+    district = '',
+    browserUserAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
   } = params;
 
   console.log('\n' + '='.repeat(80));
@@ -366,7 +371,7 @@ async function getSearchResults(params: {
           'Cookie': cookieString || '',
           'Referer': BASE_URL,
           'Origin': 'https://prelive.elections.am',
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+          'User-Agent': browserUserAgent,
           'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
           'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7',
           'Accept-Encoding': 'gzip, deflate, br',
@@ -390,7 +395,7 @@ async function getSearchResults(params: {
           locales: ['ru-RU', 'en-US'],
           operatingSystems: ['windows']
         },
-        proxyUrl: USE_PROXY ? process.env.PROXY_URL : undefined,
+        proxyUrl: undefined,
         retry: {
           limit: 1
         }
@@ -524,7 +529,7 @@ app.post('/api/search', async (req: Request, res: Response) => {
     console.log(`🌐 IP: ${req.ip || req.socket.remoteAddress}`);
     console.log(`📝 Данные: ${firstName} ${lastName}`);
 
-    // Perform search
+    // Perform search with client browser User-Agent
     const results = await getSearchResults({
       firstName,
       lastName,
@@ -535,7 +540,8 @@ app.post('/api/search', async (req: Request, res: Response) => {
       street: normalizeArmenianText((data.street || '').trim()),
       building: normalizeArmenianText((data.building || '').trim()),
       apartment: normalizeArmenianText((data.apartment || '').trim()),
-      district: normalizeArmenianText((data.district || '').trim())
+      district: normalizeArmenianText((data.district || '').trim()),
+      browserUserAgent: data._browserUserAgent || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
     });
 
     const duration = ((Date.now() - startTime) / 1000).toFixed(2);
