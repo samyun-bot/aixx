@@ -301,6 +301,12 @@ async function getSearchResults(params: {
     throw new Error('Cannot proceed without CSRF token');
   }
 
+  // Small delay to ensure session is established
+  await new Promise(resolve => setTimeout(resolve, 500));
+
+  console.log(`📝 CSRF токен получен, cookies установлены`);
+  console.log(`🍪 Cookie string length: ${cookieString?.length || 0} bytes`);
+
   const formData: Record<string, string> = {
     '__RequestVerificationToken': csrfToken,
     'SearchBy': 'SearchByData',
@@ -333,6 +339,7 @@ async function getSearchResults(params: {
 
     try {
       console.log(`📡 Запрос страницы ${page}...`);
+      console.log(`📋 Form body length: ${formBody.length} bytes`);
 
       const response = await gotScraping({
         url: BASE_URL,
@@ -380,6 +387,10 @@ async function getSearchResults(params: {
 
       if (response.statusCode !== 200) {
         console.log(`❌ Ошибка: Status Code ${response.statusCode}`);
+        if (response.statusCode === 402) {
+          console.log(`⚠️ 402 Payment Required - это может означать блокировку или лимит`);
+          console.log(`📋 Response preview: ${response.body.substring(0, 300)}`);
+        }
         break;
       }
 
